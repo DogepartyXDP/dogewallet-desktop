@@ -1,6 +1,6 @@
 <div id="new-passphrase">
     <p>A passphrase has been created for you and is visible in the black box below. <br/>This passphrase lets you access your wallet and the funds it contains.</p>
-    <div class="btc-wallet-passphrase"></div>
+    <div class="doge-wallet-passphrase"></div>
     <div class="alert alert-danger fade in center bold">
         <h3>Write your passphrase down and keep it safe!</h3>
         <ul>
@@ -36,13 +36,13 @@ $(document).ready(function(){
     $('#format-select').selectpicker({ width: '100%' }).selectpicker("refresh");
 
     // Set wallet passphrase to first generated passphrase
-    $('.btc-wallet-passphrase').text(passphrase);
+    $('.doge-wallet-passphrase').text(passphrase);
 
     // Re-generate the passphrase on format change
     $('#format-select').change(function(){
         isBip39    = ($(this).val()=='BIP39') ? true : false;
         passphrase = generateWalletPassphrase(isBip39);
-        $('.btc-wallet-passphrase').text(passphrase);
+        $('.doge-wallet-passphrase').text(passphrase);
     });
 
     // Handle going back to the welcome screen if the user clicks cancel

@@ -93,15 +93,15 @@ while true; do
         [Yy]* ) yn="Y"
                 plist=$base_dir/builds/$app_name/osx64/$app_name.app/Contents/Info.plist
                 echo "### Editing Plist file at $plist..."
-                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:3:CFBundleURLName string Bitcoin" $plist
+                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:3:CFBundleURLName string Dogecoin" $plist
                 /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:3:CFBundleURLSchemes array" $plist
-                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:3:CFBundleURLSchemes:0 string bitcoin" $plist
-                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:4:CFBundleURLName string Counterparty" $plist
+                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:3:CFBundleURLSchemes:0 string dogecoin" $plist
+                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:4:CFBundleURLName string Dogeparty" $plist
                 /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:4:CFBundleURLSchemes array" $plist
-                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:4:CFBundleURLSchemes:0 string counterparty" $plist
-                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:5:CFBundleURLName string FreeWallet" $plist
+                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:4:CFBundleURLSchemes:0 string dogeparty" $plist
+                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:5:CFBundleURLName string DogeWallet" $plist
                 /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:5:CFBundleURLSchemes array" $plist
-                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:5:CFBundleURLSchemes:0 string freewallet" $plist
+                /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:5:CFBundleURLSchemes:0 string dogewallet" $plist
                 break;;
         [Nn]* ) break;;
         * ) echo "Please answer yes or no.";;
@@ -211,8 +211,14 @@ while true; do
                 ' | osascript
                 sync
 
+                # sleep to let the actions settle
+                sleep 10
+
                 # unmount it
                 hdiutil detach $device
+
+                # sleep to let the device actually unmount
+                sleep 10
                  
                 # now make the final image a compressed disk image
                 echo "### Creating compressed image..."
@@ -249,7 +255,7 @@ while true; do
                     cp -a * /tmp/$app_name/
                     echo "### Copying additional files to install directory..."
                     cd $base_dir/misc/
-                    cp FreeWallet.png install.sh FreeWallet.desktop /tmp/$app_name/
+                    cp DogeWallet.png install.sh DogeWallet.desktop /tmp/$app_name/
                     cd /tmp
                     tar -cvzf $app_name.x$bits.tgz $app_name
                     cp $app_name.x$bits.tgz $base_dir/builds/$app_name/linux$bits/

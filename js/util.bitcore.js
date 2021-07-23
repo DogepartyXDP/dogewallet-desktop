@@ -3,9 +3,47 @@
 var bitcore = require('bitcore-lib');
 var bitcoreMessage = require('bitcore-message'); // this also binds itself to bitcore.Message as soon as it's require'd
 
+// Add Dogecoin configs to bitcore networks
+// Dogecoin Mainnet
+bitcore.Networks.dogemainnet = bitcore.Networks.add({
+  name: 'dogelivenet',
+  alias: 'dogemainnet',
+  pubkeyhash: 0x1e,
+  privatekey: 0x9e,
+  scripthash: 0x16,
+  xpubkey: 0x02facafd,
+  xprivkey: 0x02fac398,
+  networkMagic: 0xc0c0c0c0,
+  port: 8335,
+  dnsSeeds: [
+    'seed.multidoge.org',
+    'seed2.multidoge.org',
+    'veryseed.denarius.pro',
+    'muchseed.denarius.pro',
+    'suchseed.denarius.pro',
+    'seed.dogecoin.com',
+    'seed.dogechain.info',
+    'seed.mophides.com',
+    'seed.dglibrary.org'
+  ]
+});
+// Dogecoin Testnet
+bitcore.Networks.dogetestnet = bitcore.Networks.add({
+  name: 'dogetestnet',
+  alias: 'dogetest',
+  pubkeyhash: 0x71,
+  privatekey: 0xf1,
+  scripthash: 0xc4,
+  xpubkey: 0x0432a9a8,
+  xprivkey: 0x0432a243,
+  networkMagic: 0xfcc1b7dc,
+  port: 18335
+});
+
 // this 'global' is overwritten by tests!
 // var NETWORK = (USE_TESTNET || USE_REGTEST) ? bitcore.Networks.testnet : bitcore.Networks.livenet;
-var NETWORK = bitcore.Networks.livenet;
+// var NETWORK = (USE_TESTNET || USE_REGTEST) ? 'dogetestnet' : 'dogelivenet';
+var NETWORK = 'dogelivenet';
 
 var CWHierarchicalKey = function(passphrase, password) {
   checkArgType(passphrase, "string");

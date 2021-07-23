@@ -21,7 +21,7 @@
             </div>
             <table width="100%" class="table table-condensed table-bordered no-bottom-margin">
             <tr>
-                <td width="75" rowspan="2" valign="middle" align="center" style="vertical-align:middle;"><img src="images/icons/xcp.png" id="asset-icon" border="0"></td>
+                <td width="75" rowspan="2" valign="middle" align="center" style="vertical-align:middle;"><img src="images/icons/xdp.png" id="asset-icon" border="0"></td>
                 <th width="*%" class="info">Name</th>
                 <th width="33%" class="info text-center">Current Balance</th>
             </tr>
@@ -38,15 +38,15 @@
             <table class="table table-condensed table-striped table-bordered no-bottom-margin table-centered text-center">
             <thead>
                 <tr class="info">
-                    <th width="33%">Bitcoin (BTC)</th>
-                    <th width="34%">Counterparty (XCP)</th>
+                    <th width="33%">Dogecoin (DOGE)</th>
+                    <th width="34%">Dogeparty (XDP)</th>
                     <th width="33%">US Dollars (USD)</th>
                 </tr>
             </thead>
             <tbody>
             <tr>
-                <td id="asset-value-btc">&nbsp;</td>
-                <td id="asset-value-xcp">&nbsp;</td>
+                <td id="asset-value-doge">&nbsp;</td>
+                <td id="asset-value-xdp">&nbsp;</td>
                 <td id="asset-value-usd">&nbsp;</td>
             </tr>                
             </tbody>
@@ -60,7 +60,7 @@
             <thead>
                 <tr class="info">
                     <th width="33%">Total Supply <i id="asset-locked-status" class="fa fa-lg fa-unlock"></i></th>
-                    <th width="34%">Last Trade Price (XCP)</th>
+                    <th width="34%">Last Trade Price (XDP)</th>
                     <th width="33%">Market Cap. (USD)</th>
                 </tr>
             </thead>
@@ -76,7 +76,7 @@
             <!-- Reputation Information-->
             <div class="panel-heading panel-middle">
                 <i class="fa fa-lg fa-shield"></i> Reputation
-                <a href="https://reputation.coindaddy.io/xcp/asset/{QUERY}" class="btn btn-xs btn-success pull-right" id="asset-reputation-feedback" target="_blank"><i class="fa fa-bullhorn"></i> Feedback</a>
+                <a href="https://reputation.coindaddy.io/xdp/asset/{QUERY}" class="btn btn-xs btn-success pull-right" id="asset-reputation-feedback" target="_blank"><i class="fa fa-bullhorn"></i> Feedback</a>
             </div>
             <table width="100%" class="table table-condensed table-striped table-bordered no-bottom-margin text-center">
             <thead>
@@ -151,7 +151,7 @@ $(document).ready(function(){
     updateBalancesList();
 
     // Display BTC asset info
-    loadAssetInfo('BTC');
+    loadAssetInfo('DOGE');
 
     // Handle detecting keyup events and filter the balances list to show matches
     // buffer the event by 250ms so we can allow for additional keystrokes before processing

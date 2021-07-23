@@ -241,14 +241,14 @@ body:before {
     height: 48px;
     background-size: 100%;
 }
-.fw-icon-btc {
-    background-image: url(../images/icons/btc.png);
+.fw-icon-doge {
+    background-image: url(../images/icons/DOGE.png);
 }
-.fw-icon-tbtc {
-    background-image: url(../images/icons/btc.png);
+.fw-icon-tdoge {
+    background-image: url(../images/icons/TDOGE.png);
 }
-.fw-icon-xcp {
-    background-image: url(../images/icons/xcp.png);
+.fw-icon-xdp {
+    background-image: url(../images/icons/XDP.png);
 }
 .fw-coindaddy {
   background-image: url('../images/icons/coindaddy-coin-20.png');
@@ -516,8 +516,8 @@ li.history-list-received .history-list-amount {
     width: 475px;
 }
 
-.btc-wallet-passphrase ,
-.btc-wallet-blackbox {
+.doge-wallet-passphrase ,
+.doge-wallet-blackbox {
     background-color: #000;
     color: #fff;
     padding: 10px;
@@ -526,10 +526,10 @@ li.history-list-received .history-list-amount {
     width: 100%;
     border: 0px !important;
 }
-.btc-wallet-password .modal-dialog {
+.doge-wallet-password .modal-dialog {
     max-width: 300px;
 }
-.btc-wallet-address .modal-dialog {
+.doge-wallet-address .modal-dialog {
     max-width: 350px;
 }
 

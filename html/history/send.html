@@ -57,55 +57,62 @@
 
     $(document).ready(function(){
 
-        if(FW.CURRENT_TRANSACTION.asset=='BTC'){
+        if(FW.CURRENT_TRANSACTION.asset=='DOGE'){
+
             var net = (FW.WALLET_NETWORK==2) ? '/testnet' : '';
 
             // Update 'more info' link to point to transaction url
-            $('#history-info-more').attr('href','https://blockstream.info' + net + '/tx/' + tx);
+            $('#history-info-more').attr('href','https://live.blockcypher.com/doge/tx/' + tx);
 
-            // Request transaction information from blockstream
-            $.getJSON('https://blockstream.info' + net + '/api/tx/' + tx, function(o){
-                if(o.txid){
-                    $('#source').html(o.vin[0].prevout.scriptpubkey_address);
-                    $('#destination').html(o.vout[0].scriptpubkey_address);
-                    $('#asset').html('<img src="images/icons/btc.png" class="asset-icon-sm pull-left">BTC');
-                    $('#tx-hash').html(o.txid);
-                    $('#quantity').text(numeral(o.vout[0].value).multiply(0.00000001).format('0,0.00000000'));
-                    $('#status').text((o.status.block_height) ? 'Valid' : 'Pending');
-                    $('#timestamp').html('<span data-livestamp='  + o.status.block_time + ' class="nowrap"></span>');
-                    $('#block').html(numeral(o.status.block_height).format('0,0'));
+            // Request transaction information from blockcypher
+            var url = (FW.WALLET_NETWORK==1) ? 'https://api.blockcypher.com/v1/doge/main/txs/' + tx : '';
+            $.getJSON(url, function(o){
+                if(o.hash){
+                    $('#source').html(o.inputs[0].addresses[0]);
+                    $('#destination').html(FW.WALLET_ADDRESS);
+                    $('#asset').html('<img src="images/icons/DOGE.png" class="asset-icon-sm pull-left">DOGE');
+                    $('#tx-hash').html(o.hash);
+                    $('#quantity').text(numeral(o.outputs[0].value).multiply(0.00000001).format('0,0.00000000'));
+                    $('#status').text((o.block_height) ? 'Valid' : 'Pending');
+                    $('#timestamp').html('<span data-livestamp='  + moment(o.confirmed,["YYYY-MM-DDTH:m:s"]).unix() + ' class="nowrap"></span>');
+                    $('#block').html(numeral(o.block_height).format('0,0'));
                     $('#tx-index').text('-');
                 }
             }).fail(function(){
-                // Request transaction info from blockcypher
-                var net = (FW.WALLET_NETWORK==2) ? 'test3' : 'main',
-                    net2 = (FW.WALLET_NETWORK==2) ? 'btc-testnet' : 'btc';
-                $.getJSON('https://api.blockcypher.com/v1/btc/' + net + '/txs/' + tx, function(o){
-                    if(o.hash){
-                        $('#source').html(o.inputs[0].addresses[0]);
+                // Failover #1 - Request transaction info from chain.so
+                var net = (FW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE',
+                    url = 'https://chain.so/api/v2/tx/' + net + '/' + tx;
+                $.getJSON(url, function(o){
+                    if(o.data && o.data.txid){
+                        $('#source').html(o.data.inputs[0].address);
                         $('#destination').html(FW.WALLET_ADDRESS);
-                        $('#asset').html('<img src="images/icons/btc.png" class="asset-icon-sm pull-left">BTC');
-                        $('#tx-hash').html(o.hash);
-                        $('#quantity').text(numeral(o.outputs[0].value).multiply(0.00000001).format('0,0.00000000'));
-                        $('#status').text((o.block_height) ? 'Valid' : 'Pending');
-                        $('#timestamp').html('<span data-livestamp='  + moment(o.confirmed,["YYYY-MM-DDTH:m:s"]).unix() + ' class="nowrap"></span>');
-                        $('#block').html(numeral(o.block_height).format('0,0'));
+                        $('#asset').html('<img src="images/icons/DOGE.png" class="asset-icon-sm pull-left">DOGE');
+                        $('#tx-hash').html(o.data.txid);
+                        var qty = o.data.sent_value;
+                        o.data.outputs.forEach(function(out){
+                            if(out.address == FW.WALLET_ADDRESS)
+                                qty = out.value;
+                        });
+                        $('#quantity').text(numeral(qty).format('0,0.00000000'));
+                        $('#status').text((o.data.block_no) ? 'Valid' : 'Pending');
+                        $('#timestamp').html('<span data-livestamp='  + o.data.time + ' class="nowrap"></span>');
+                        $('#block').html(numeral(o.data.block_no).format('0,0'));
                         $('#tx-index').text('-');
-                        $('#history-info-more').attr('href','https://live.blockcypher.com/' + net2 + '/tx/' + tx);
+                        $('#history-info-more').attr('href','https://chain.so/tx/' + net + '/' + tx);
                     }
                 });
-            });             
+            });
         } else {
             // Update 'more info' link to point to transaction url
             $('#history-info-more').attr('href', FW.XCHAIN_API + '/tx/' + tx);
 
-            // Request transaction information from xchain.io
+            // Request transaction information from dogeparty.xchain.io
             $.getJSON(FW.XCHAIN_API + '/api/tx/' + tx, function( o ){
                 if(!o.error){
                     var asset = (o.asset_longname && o.asset_longname!='') ? o.asset_longname : o.asset;
                     $('#source').html(o.source);
                     $('#destination').html(o.destination);
-                    $('#asset').html('<img src="https://xchain.io/icon/' + o.asset + '.png" class="asset-icon-sm pull-left">' + asset);
+                    $('#asset').html('<img src="' + FW.XCHAIN_API + '/icon/' + o.asset + '.png" class="asset-icon-sm pull-left">' + asset);
                     $('#tx-hash').html(o.tx_hash);
                     var fmt = (String(o.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
                     $('#quantity').text(numeral(o.quantity).format(fmt));

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=DogeWallet
+Comment=by Jeremy Johnson <j-dog@j-dog.net>
+Exec=/usr/share/DogeWallet/DogeWallet %U
+Icon=/usr/share/icons/DogeWallet/DogeWallet.png
+Terminal=false
+Categories=Office;
+MimeType=x-scheme-handler/dogecoin;x-scheme-handler/dogeparty;x-scheme-handler/dogewallet;

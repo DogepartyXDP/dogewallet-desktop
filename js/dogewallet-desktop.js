@@ -1,15 +1,16 @@
 /*********************************************************************
- * freewallet-desktop.js 
+ * dogewallet-desktop.js 
  *
- * Custom javascript for FreeWallet (desktop version)
+ * Custom javascript for DogeWallet (desktop version)
  *********************************************************************/
 
 // Setup some short aliases
 var ls = localStorage,
     ss = sessionStorage,
-    bc = bitcore;
+    bc = bitcore,
+    bj = bitcoinjs;
 
-// Define FreeWallet namespace
+// Define DogeWallet namespace
 FW = {};
 
 // Define object to hold data for dialog boxes
@@ -21,7 +22,7 @@ FW.API_KEYS = {};
 // Load wallet network (1=Mainnet, 2=Testnet)
 FW.WALLET_NETWORK = ls.getItem('walletNetwork') || 1;
 
-// Load latest network information (btc/xcp price, fee info, block info)
+// Load latest network information (DOGE/XDP price, fee info, block info)
 FW.NETWORK_INFO =  JSON.parse(ls.getItem('networkInfo')) || {};
 
 // Wallet format (0=Counterwallet, 1=BIP39)
@@ -57,36 +58,36 @@ FW.WALLET_HISTORY  = JSON.parse(ls.getItem('walletHistory'))  || [];
 // Define default server info
 FW.WALLET_SERVER_INFO = {
     mainnet: {
-        host: 'api.counterparty.io',
-        port: 4000,
+        host: 'api.dogeparty.net',
+        port: 4005,
         user: 'rpc',
         pass: 'rpc',
         ssl: false,
-        api_host: 'xchain.io',
+        api_host: 'dogeparty.xchain.io',
         api_ssl: true
     },
     testnet: {
-        host: 'api.counterparty.io',
-        port: 14000,
+        host: 'api.dogeparty.net',
+        port: 14005,
         user: 'rpc',
         pass: 'rpc',
         ssl: false,
-        api_host: 'testnet.xchain.io',
+        api_host: 'dogeparty-testnet.xchain.io',
         api_ssl: true
     }
 };
 
 // Define the default and base markets for the Decentralized Exchange (DEX)
-FW.DEFAULT_MARKETS = ['BTC','XCP','BITCRYSTALS','PEPECASH','WILLCOIN'];
+FW.DEFAULT_MARKETS = ['DOGE','XDP'];
 FW.BASE_MARKETS    = JSON.parse(ls.getItem('walletMarkets')) || FW.DEFAULT_MARKETS;
 FW.MARKET_OPTIONS  = JSON.parse(ls.getItem('walletMarketOptions')) || [1,2]; // 1=named, 2=subasset, 3=numeric 
 
 // Define default dispenser watchlist assets
-FW.DEFAULT_DISPENSERS = ['XCP','PEPECASH'];
+FW.DEFAULT_DISPENSERS = ['XDP'];
 FW.BASE_DISPENSERS    = JSON.parse(ls.getItem('walletDispensers')) || FW.DEFAULT_DISPENSERS;
 FW.DISPENSER_OPTIONS  = JSON.parse(ls.getItem('walletDispenserOptions')) || []; // 1=hide closed 
 
-// Define arrays to hold BTCPay information
+// Define arrays to hold DOGEpay information
 FW.BTCPAY_ORDERS  = JSON.parse(ls.getItem('btcpayOrders'))  || {}; // array of order tx_hashes to monitor for BTCpay transactions
 FW.BTCPAY_MATCHES = JSON.parse(ls.getItem('btcpayMatches')) || {}; // array of order matches that have seen/processed
 FW.BTCPAY_QUEUE   = JSON.parse(ls.getItem('btcpayQueue'))   || {}; // Array of btcpay transactions to process
@@ -99,7 +100,7 @@ FW.BTCPAY_QUEUE   = JSON.parse(ls.getItem('btcpayQueue'))   || {}; // Array of b
 // We cache the data in order to reduce duplicate API calls as much as possible
 FW.ASSET_INFO  = {};
 // Example of cached asset data
-// FW.ASSET_INFO['BTC'] = {
+// FW.ASSET_INFO['DOGE'] = {
 //     block:     0, // Block # when data was last updated
 //     ...
 // }
@@ -108,7 +109,7 @@ FW.ASSET_INFO  = {};
 // We cache the data in order to reduce duplicate API calls as much as possible
 FW.REPUTATION_INFO  = {};
 // Example of cached reputation data
-// FW.REPUTATION_INFO['BTC'] = {
+// FW.REPUTATION_INFO['DOGE'] = {
 //     block:     0, // Block # when data was last updated
 //     ...
 // }
@@ -117,7 +118,7 @@ FW.REPUTATION_INFO  = {};
 // We cache the data in order to reduce duplicate API calls as much as possible
 FW.MARKET_DATA = {}; 
 // Example of cached market data
-// FW.MARKET_DATA['BTC/XCP'] = {
+// FW.MARKET_DATA['DOGE/XDP'] = {
 //     block:      0, // Block # when data was last updated
 //     basics:    {}, // Basics (last price, high/low, volume)
 //     orderbook: {}, // Full Orderbook
@@ -131,7 +132,7 @@ FW.MARKET_DATA = {};
 // Start loading the wallet 
 $(document).ready(function(){
 
-    // Quick hack to blow away any old data from freewallet.io/browser
+    // Quick hack to blow away any old data from browser
     var old = ls.getItem("Balances");
     if(old){
         ls.clear();
@@ -178,7 +179,7 @@ function setXChainAPI( network ){
 
 // Handle checking for an updated wallet version
 function checkWalletUpgrade(version, message){
-    $.get('https://freewallet.io/releases/current', function(current){
+    $.get('https://dogeparty.net/dogewallet-desktop/releases/current', function(current){
         // Only proceed if we have a response/version
         if(current){
             var a  = version.trim().split('.'),
@@ -196,7 +197,7 @@ function checkWalletUpgrade(version, message){
             if(update)
                 dialogUpdateAvailable(current.trim());
             else if(message)
-                dialogMessage('Current Release', 'You are running the latest version of FreeWallet', false, true);
+                dialogMessage('Current Release', 'You are running the latest version of DogeWallet', false, true);
 
         }
 
@@ -235,7 +236,7 @@ function initWallet(){
         // Decrypt the wallet using the current password (do this so we populate FW.WALLET_KEYS)
         decryptWallet(getWalletPassword());
     }
-    // Check if we have everything needed to authorize Auto-BTCpay transactions
+    // Check if we have everything needed to authorize Auto-DOGEpay transactions
     checkBtcpayAuth();
     // Trigger an immediate check of if we need to update the wallet information (prices/balances)
     checkUpdateWallet();
@@ -322,15 +323,17 @@ function createWallet( passphrase, isBip39=false ){
     // Add the first 10 addresses to the wallet (both mainnet and testnet)
     var networks = ['mainnet','testnet'];
     networks.forEach(function(net){
-        var network = bc.Networks[net],
-            netname = (net=='testnet') ? 'testnet' : 'bitcoin';
-        var s = bc.HDPrivateKey.fromSeed(wallet, network);
+        var bcName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+            bjName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
+            bcNet  = bc.Networks[bcName], // Bitcore Network
+            bjNet  = bj.networks[bjName]; // BitcoinJS Network
+        var s = bc.HDPrivateKey.fromSeed(wallet, bcNet);
         for(var i=0;i<10;i++){
             var d = s.derive("m/0'/0/" + i),
-                a = bc.Address(d.publicKey, network).toString();
-                b = bitcoinjs.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bitcoinjs.networks[netname] }).address;
+                a = bc.Address(d.publicKey, bcNet).toString();
+                // b = bj.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bjNet }).address;
             addWalletAddress(net, a, 'Address #' + (i + 1), 1, i);
-            addWalletAddress(net, b, 'Segwit Address #' + (i + 1), 7, i);
+            // addWalletAddress(net, b, 'Segwit Address #' + (i + 1), 7, i);
         }
     });
     // Set current address to first address in wallet
@@ -449,16 +452,18 @@ function lockWallet(){
 function getWalletAddress( index ){
     // console.log('getWalletAddress index=',index);
     // update network (used in CWBitcore)
-    var net = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-    NETWORK = bc.Networks[net];
+    var net    = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+        bcName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+        bcNet  = bc.Networks[bcName]; // Bitcore Network
+    // NETWORK = bcNet;
     if(typeof index === 'number'){
         // var type
         var w = getWallet(),
             a = null;
         if(w){
-            k = bc.HDPrivateKey.fromSeed(w, NETWORK),
+            k = bc.HDPrivateKey.fromSeed(w, bcNet),
             d = k.derive("m/0'/0/" + index),
-            a = bc.Address(d.publicKey, NETWORK).toString();
+            a = bc.Address(d.publicKey, bcNet).toString();
         } else {
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         }
@@ -686,7 +691,7 @@ function updateWalletOptions(){
         block = (FW.NETWORK_INFO.network_info) ? FW.NETWORK_INFO.network_info[net].block_height : 'NA';
     $('.footer-current-block').text('Block ' + numeral(block).format('0,0'));
     $('.footer-last-updated').html('Last updated <span data-livestamp='  + last.substr(0,last.length-3) + ' class="nowrap"></span>');
-    $('.footer-current-price').text('$' + numeral(getAssetPrice('XCP')).format('0,0.00') + ' USD');
+    $('.footer-current-price').text('$' + numeral(getAssetPrice('XDP')).format('0,0.00') + ' USD');
     var info = getWalletAddressInfo(FW.WALLET_ADDRESS);
     if(info.type==3){
         $('#action-view-privkey').hide();
@@ -768,7 +773,7 @@ function getAssetReputationInfo(asset, callback, force){
     if(!FW.REPUTATION_INFO[asset])
         FW.REPUTATION_INFO[asset] = {}
     if(update){
-        $.getJSON('https://reputation.coindaddy.io/api/asset/xcp/' + asset, function( data ){
+        $.getJSON('https://reputation.coindaddy.io/api/asset/xdp/' + asset, function( data ){
             data.block = block;
             FW.REPUTATION_INFO[asset] = data;
             if(typeof callback === 'function')
@@ -829,7 +834,7 @@ function checkTokenAccess(feature){
     return access;
 }
 
-// Handle verifying that we have wallet seed available for BTCpay transactions
+// Handle verifying that we have wallet seed available for DOGEpay transactions
 function checkBtcpayAuth(){
     // console.log('checkBtcpayAuth FW.BTCPAY_ORDERS=',FW.BTCPAY_ORDERS);
     var enabled = false;
@@ -1086,25 +1091,25 @@ function updateBalances(address, page, full, callback){
     });
 }
 
-// Handle updating BTC balance from external source with multiple failovers
-function updateBTCBalance(address, callback){
+// Handle updating DOGE balance from external source with multiple failovers
+function updateDOGEBalance(address, callback){
     // Main API - Blockcypher
-    getBTCBalance(address, 'blockcypher', function(bal){
+    getDOGEBalance(address, 'blockcypher', function(bal){
         if(typeof bal === 'number'){
             callback(bal)
         } else {
-            // Failover #1 - Blockstream
-            getBTCBalance(address, 'blockstream', function(bal){
+            // Failover #1 - Dogechain
+            getDOGEBalance(address, 'dogechain', function(bal){
                 if(typeof bal === 'number'){
                     callback(bal)
                 } else {
                     // Failover #2 - Chain.so
-                    getBTCBalance(address, 'chain.so', function(bal){
+                    getDOGEBalance(address, 'chain.so', function(bal){
                         if(typeof bal === 'number'){
                             callback(bal)
                         } else {
                             // Failover #3 - Indexd
-                            getBTCBalance(address, 'indexd', function(bal){
+                            getDOGEBalance(address, 'indexd', function(bal){
                                 if(typeof bal === 'number'){
                                     callback(bal)
                                 } else {
@@ -1119,23 +1124,23 @@ function updateBTCBalance(address, callback){
     });
 }
 
-// Handle getting BTC balance (in satoshis) from various sources
-function getBTCBalance(address, source, callback){
+// Handle getting DOGE balance (in satoshis) from various sources
+function getDOGEBalance(address, source, callback){
     var addr = (address) ? address : FW.WALLET_ADDRESS,
-        bal  = false; // BTC Balance or false for failure
-    // BlockCypher
+        bal  = false; // DOGE Balance or false for failure
+    // BlockCypher (mainnet only)
     if(source=='blockcypher'){
-        var net = (FW.WALLET_NETWORK==2) ? 'test3' : 'main';
-        $.getJSON('https://api.blockcypher.com/v1/btc/' + net + '/addrs/' + addr + '/balance', function( o ){
+        var url = (FW.WALLET_NETWORK==1) ? 'https://api.blockcypher.com/v1/doge/main/addrs/' + addr + '/balance' : '';
+        $.getJSON(url, function( o ){
             if(typeof o.balance === 'number')
                 bal = o.balance + o.unconfirmed_balance;
         }).always(function(){
             callback(bal);
         });
-    // Blockstream
-    } else if(source=='blockstream'){
-        var net = (FW.WALLET_NETWORK==2) ? '/testnet' : '';
-        $.getJSON('https://blockstream.info' + net + '/api/address/' + addr, function( o ){
+    // Dogechain (mainnet only)
+    } else if(source=='dogechain'){
+        var url = (FW.WALLET_NETWORK==1) ? 'https://dogechain.info/api/v1/address/balance/' + addr : '';
+        $.getJSON(url, function( o ){
             if(typeof o.confirmed_balance === 'number')
                 bal = o.confirmed_balance + o.mempool_balance;
         }).always(function(){
@@ -1143,14 +1148,14 @@ function getBTCBalance(address, source, callback){
         });
     // Chain.so
     } else if(source=='chain.so'){
-        var net = (FW.WALLET_NETWORK==2) ? 'BTCTEST' : 'BTC';
+        var net = (FW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE';
         $.getJSON('https://chain.so/api/v2/get_address_balance/' + net + '/' + addr, function( o ){
             if(o.status=='success')
                 bal = (parseFloat(o.data.confirmed_balance) + parseFloat(o.data.unconfirmed_balance)) * 100000000;
         }).always(function(){
             callback(bal);
         });
-    // CoinDaddy indexd
+    // CoinDaddy addrindexrs
     } else if(source=='indexd'){
         var port = (FW.WALLET_NETWORK==2) ? 18432 : 8432;
         $.get('http://public.coindaddy.io:' + port + '/a/' + addr + '/balance', function( balance ){
@@ -1170,17 +1175,17 @@ function updateWalletBalances( address, force ){
         info  = getAddressBalance(addr) || {},
         last  = info.lastUpdated || 0,
         ms    = 300000, // 5 minutes
-        btc   = false,  // Flag to indicate if BTC update is done
-        xcp   = false;  // Flag to indicate if XCP update is done
-    // Handle updating BTC and XCP asset balances
+        doge  = false, // Flag to indicate if DOGE update is done
+        xdp   = false;  // Flag to indicate if XDP update is done
+    // Handle updating DOGE and XDP asset balances
     if((parseInt(last) + ms)  <= Date.now() || force){
         // console.log('updating wallet balances');
         // Callback to handle saving data when we are entirely done 
         var doneCb = function(){
             var info = FW.TEMP_BALANCES;
-            if(btc && xcp){
+            if(doge && xdp){
                 // Sort array to show items in the following order
-                // BTC & XCP 1st and second
+                // DOGE & XDP 1st and second
                 // Alphabetical order for asset name
                 info.data.sort(function(a,b){
                     if(a.asset.length==3 && b.asset.length>3)
@@ -1218,66 +1223,60 @@ function updateWalletBalances( address, force ){
             data: [],
             lastUpdated: Date.now()
         }
-        // Get BTC/XCP currency info
-        var btc_info = getAssetPrice('BTC',true),
-            xcp_info = getAssetPrice('XCP',true);
+        // Get DOGE/XDP currency info
+        var doge_info = getAssetPrice('DOGE',true),
+            xdp_info  = getAssetPrice('XDP',true);
         // Update asset balances
         updateBalances(address, 1, true, function(){
-            xcp = true; // Flag to indicate we are done with XCP update
+            xdp = true; // Flag to indicate we are done with XDP update
             doneCb();
         });
-        // Update BTC Balance
-        updateBTCBalance(address, function(sat){
-            var qty = numeral(sat * 0.00000001).format('0,0.00000000');
+        // Update DOGE Balance
+        updateDOGEBalance(address, function(sat){
+            var qty = numeral(sat * 0.00000001).format('0.00000000');
             FW.TEMP_BALANCES.data.push({
-                asset: "BTC",
+                asset: "DOGE",
+                asset_longname: '',
                 estimated_value: {
-                    btc: numeral(qty).format('0,0.00000000'),
-                    usd: numeral(parseFloat(btc_info.price_usd) * qty).format('0.00'),
-                    xcp: numeral(qty / parseFloat(xcp_info.price_btc)).format('0.00000000'),
+                    doge: numeral(qty).format('0.00000000'),
+                    usd: numeral(parseFloat(doge_info.price_usd) * qty).format('0.00'),
+                    xdp: numeral(qty / parseFloat(xdp_info.price_doge)).format('0.00000000'),
                 },
                 quantity: qty
             });
-            btc = true; // Flag to indicate we are done with BTC update
+            doge = true; // Flag to indicate we are done with DOGE update
             doneCb();
         });
     }
 }
 
-// Handle updating BTC history from external source with multiple failovers
-function updateBTCHistory(address, callback){
+// Handle updating DOGE history from external source with multiple failovers
+function updateDOGEHistory(address, callback){
     // Main API - Blockcypher
-    getBTCHistory(address, 'blockcypher', function(txs){
+    getDOGEHistory(address, 'blockcypher', function(txs){
         if(txs instanceof Array){
             callback(txs)
         } else {
-            // Failover #1 - Blockstream
-            getBTCHistory(address, 'blockstream', function(txs){
+            // Failover #1 - Chain.so
+            getDOGEHistory(address, 'chain.so', function(txs){
                 if(txs instanceof Array){
                     callback(txs)
                 } else {
-                    // Failover #2 - Chain.so
-                    getBTCHistory(address, 'chain.so', function(txs){
-                        if(txs instanceof Array){
-                            callback(txs)
-                        } else {
-                            callback([]);
-                        }
-                    });
+                    callback([]);
                 }
             });
         }
     });
 }
 
-// Handle getting BTC transaction history from various sources
-function getBTCHistory(address, source, callback){
+// Handle getting DOGE transaction history from various sources
+function getDOGEHistory(address, source, callback){
     var addr = (address) ? address : FW.WALLET_ADDRESS,
         data = false; // Array of history transactions
     // BlockCypher - Last 50 transactions
     if(source=='blockcypher'){
-        var net = (FW.WALLET_NETWORK==2) ? 'test3' : 'main';
-        $.getJSON('https://api.blockcypher.com/v1/btc/' + net + '/addrs/' + addr + '/full?limit=50', function( o ){
+        var url = (FW.WALLET_NETWORK==1) ? 'https://api.blockcypher.com/v1/doge/main/addrs/' + addr + '/full?limit=50' : '';
+        $.getJSON(url, function( o ){
             if(o.txs){
                 data = [];
                 o.txs.forEach(function(tx){
@@ -1308,38 +1307,9 @@ function getBTCHistory(address, source, callback){
             callback(data);
         });
     }
-    // Blockstream - Last 25 transactions
-    if(source=='blockstream'){
-        var net = (FW.WALLET_NETWORK==2) ? '/testnet' : '';
-        $.getJSON('https://blockstream.info' + net + '/api/address/' + addr + '/txs', function( o ){
-            if(o instanceof Array){
-                data = [];
-                o.forEach(function(tx){
-                    var quantity = '0.00000000';
-                    // If first input is our address, assume this is a send
-                    if(tx.vin[0].prevout.scriptpubkey_address==addr){
-                        quantity = '-' + numeral(tx.vin[0].prevout.value * 0.00000001).format('0.00000000');
-                    } else {
-                        // If our address is included in an output, assume it is a receive
-                        tx.vout.forEach(function(out){
-                            if(out.scriptpubkey_address==addr)
-                                quantity = numeral(out.value * 0.00000001).format('0.00000000');
-                        });
-                    }
-                    data.push({
-                        hash: tx.txid,
-                        timestamp: tx.status.block_time,
-                        quantity: quantity
-                    });
-                });
-            }
-        }).always(function(){
-            callback(data);
-        });
-    }
     // Chain.so - uses FIFO and requires multiple calls, so not really helpful, but useful as a last resort
     if(source=='chain.so'){
-        var net = (FW.WALLET_NETWORK==2) ? 'BTCTEST' : 'BTC';
+        var net = (FW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE';
         $.getJSON('https://chain.so/api/v2/get_tx_received/' + net + '/' + addr, function( o ){
             if(o.status=='success'){
                 data = [];
@@ -1373,21 +1343,21 @@ function getBTCHistory(address, source, callback){
 function updateWalletHistory( address, force ){
     // console.log('updateWalletHistory address, force=',address, force);
     var addr  = (address) ? address : FW.WALLET_ADDRESS,
-        net   = (FW.WALLET_NETWORK==2) ? 'tbtc' : 'btc',
+        // net   = (FW.WALLET_NETWORK==2) ? 'tbtc' : 'btc',
         info  = getAddressHistory(addr) || {},
         last  = info.lastUpdated || 0,
         ms    = 300000; // 5 minutes
     var status = {
-        btc: false,    // Flag to indicate if BTC update is done
-        xcp: false,    // Flag to indicate if XCP update is done
+        doge: false,   // Flag to indicate if DOGE update is done
+        xdp: false,    // Flag to indicate if XDP update is done
         mempool: false // Flag to indicate if mempool update is done
     }
-    // Handle updating BTC and XCP transaction history
+    // Handle updating DOGE and XDP transaction history
     if((parseInt(last) + ms)  <= Date.now() || force){
         // console.log('updating wallet history');
         // Callback to handle saving data when we are entirely done 
         var doneCb = function(){
-            var done = (status.btc && status.xcp && status.mempool) ? true : false;
+            var done = (status.doge && status.xdp && status.mempool) ? true : false;
             // Handle sorting/saving the history information
             if(done){
                 // Sort the history by timestamp, newest first
@@ -1425,31 +1395,31 @@ function updateWalletHistory( address, force ){
                 else 
                     arr.push(item);
             });
-            // Bail out if this is already a known BTC transaction
-            if(data.asset=='BTC' && typeof record.tx!== 'undefined')
+            // Bail out if this is already a known DOGE transaction
+            if(data.asset=='DOGE' && typeof record.tx!== 'undefined')
                 return;
             // Add the data to the array and save arr to info.data
             arr.push(data);
             info.data = arr;
         }
-        // Handle updating BTC history
-        updateBTCHistory(addr, function(txs){
+        // Handle updating DOGE history
+        updateDOGEHistory(addr, function(txs){
             if(txs instanceof Array){
                 txs.forEach(function(tx){
                     addTransaction({
                         type: 'send',
                         tx: tx.hash,
-                        asset: 'BTC',
+                        asset: 'DOGE',
                         asset_longname: '', 
                         quantity: tx.quantity,
                         timestamp: tx.timestamp
                     });                    
                 });
             }
-            status.btc = true; // Flag to indicate we are done with BTC update
+            status.doge = true; // Flag to indicate we are done with DOGE update
             doneCb();
         });
-        // Handle updating XCP Transactions
+        // Handle updating XDP Transactions
         $.each(['/api/history/', '/api/mempool/'], function(idx, endpoint){
             $.getJSON(FW.XCHAIN_API + endpoint + addr, function( data ){
                 data.data.forEach(function(item){
@@ -1459,10 +1429,10 @@ function updateWalletHistory( address, force ){
                         tx_type  = String(item.tx_type).toLowerCase(),
                         longname = item.asset_longname;
                     if(tx_type=='bet'){
-                        asset    = 'XCP';
+                        asset    = 'XDP';
                         quantity = item.wager_quantity;
                     } else if(tx_type=='burn'){
-                        asset    = 'BTC';
+                        asset    = 'DOGE';
                         quantity = item.burned;
                     } else if(tx_type=='order'){
                         asset    = item.get_asset,
@@ -1488,7 +1458,7 @@ function updateWalletHistory( address, force ){
                     });
                 });
                 if(idx==0)
-                    status.xcp = true;     // Flag to indicate we are done with XCP update
+                    status.xdp = true;     // Flag to indicate we are done with XDP update
                 if(idx==1)
                     status.mempool = true; // Flag to indicate we are done with mempool update
                 doneCb();
@@ -1539,7 +1509,7 @@ function updateNetworkInfo( force ){
     var last = ls.getItem('networkInfoLastUpdated') || 0,
         ms   = 300000; // 5 minutes
     if((parseInt(last) + ms)  <= Date.now() || force ){
-        // BTC/USD Price
+        // DOGE/USD Price
         $.getJSON( FW.XCHAIN_API + '/api/network', function( data ){
             if(data){
                 FW.NETWORK_INFO = data;
@@ -1619,43 +1589,43 @@ function getPrivateKey(network, address, prepend=false){
 
 // Handle updating the balances list
 function updateBalancesList(){
-    var html    = '',
-        cnt     = 0,
-        active  = 'BTC', // default to BTC being active
-        addr    = FW.WALLET_ADDRESS,
-        search  = $('.balances-list-search'),
-        filter  = search.val(),
-        info    = getAddressBalance(addr),
-        btc     = getAddressBalance(addr, 'BTC'),
-        xcp     = getAddressBalance(addr, 'XCP'),
-        btc_amt = (btc) ? btc.quantity : 0,
-        xcp_amt = (xcp) ? xcp.quantity : 0,
-        btc_val = (btc) ? btc.estimated_value.usd : 0,
-        xcp_val = (xcp) ? xcp.estimated_value.usd : 0,
-        fmt     = '0,0.00000000',
-        fmt_usd = '0,0.00',
-        display = [];
+    var html     = '',
+        cnt      = 0,
+        active   = 'DOGE', // default to DOGE being active
+        addr     = FW.WALLET_ADDRESS,
+        search   = $('.balances-list-search'),
+        filter   = search.val(),
+        info     = getAddressBalance(addr),
+        doge     = getAddressBalance(addr, 'DOGE'),
+        xdp      = getAddressBalance(addr, 'XDP'),
+        doge_amt = (doge) ? doge.quantity : 0,
+        xdp_amt  = (xdp) ? xdp.quantity : 0,
+        doge_val = (doge) ? doge.estimated_value.usd : 0,
+        xdp_val  = (xdp) ? xdp.estimated_value.usd : 0,
+        fmt      = '0,0.00000000',
+        fmt_usd  = '0,0.00',
+        display  = [];
     if(info && info.data.length){
-        // Always display BTC balance
+        // Always display DOGE balance
         display.push({ 
-            asset: 'BTC', 
-            icon: 'BTC', 
-            quantity: numeral(btc_amt).format(fmt), 
-            value: numeral(btc_val).format(fmt_usd), 
+            asset: 'DOGE',
+            icon: 'DOGE', 
+            quantity: numeral(doge_amt).format(fmt), 
+            value: numeral(doge_val).format(fmt_usd), 
             cls: 'active' 
         });
-        // Display XCP balance if we have one
-        if(xcp_amt)
+        // Display XDP balance if we have one
+        if(xdp_amt)
             display.push({ 
-                asset: 'XCP', 
-                icon: 'XCP', 
-                quantity: numeral(xcp_amt).format(fmt), 
-                value: numeral(xcp_val).format(fmt_usd), 
+                asset: 'XDP', 
+                icon: 'XDP', 
+                quantity: numeral(xdp_amt).format(fmt), 
+                value: numeral(xdp_val).format(fmt_usd), 
                 cls: '' 
             });
         // Loop through balances and add
         info.data.forEach(function(item){
-            if(item.asset.length>=4){
+            if(item.asset.length>=4 && item.asset!='DOGE'){
                 var asset = (item.asset_longname!='') ? item.asset_longname : item.asset,
                     fmt   = (item.quantity.indexOf('.')!=-1) ? '0,0.00000000' : '0,0';
                 display.push({ 
@@ -1716,7 +1686,7 @@ function getBalanceHtml(data){
 function updateHistoryList(){
     var html    = '',
         cnt     = 0,
-        active  = 'BTC', // default to BTC being active
+        active  = 'DOGE', // default to DOGE being active
         addr    = FW.WALLET_ADDRESS,
         search  = $('.history-list-search'),
         filter  = search.val(),
@@ -1777,16 +1747,16 @@ function updateHistoryList(){
 function getHistoryHtml(data){
     // Determine the correct icon to display based on type
     var type = data.type,
-        src  = 'images/icons/btc.png';
+        src  = 'images/icons/DOGE.png';
     if(type=='bet'){
-        src = 'images/icons/xcp.png';
+        src = 'images/icons/XDP.png';
     } else if(type=='broadcast'){
         src = 'images/icons/broadcast.png';
     } else if(type=='dividend'){
         src = 'images/icons/dividend.png';
     } else if(type=='cancel'){
         src = 'images/icons/cancel.png';
-    } else if((type=='send'||type=='order'||type=='issuance'||type=='destruction') && data.asset!='BTC'){
+    } else if((type=='send'||type=='order'||type=='issuance'||type=='destruction') && data.asset!='DOGE'){
         src = FW.XCHAIN_API + '/icon/'  + String(data.icon).toUpperCase() + '.png';
     } else if(type=='sweep'){
         src = 'images/icons/sweep.png';
@@ -1800,13 +1770,13 @@ function getHistoryHtml(data){
     } else if(type=='bet'){
         str = 'Bet ';
     } else if(type=='broadcast'){
-        str = 'Counterparty Broadcast';
+        str = 'Dogeparty Broadcast';
     } else if(type=='burn'){
         str = 'Burned ';
     } else if(type=='dividend'){
         str = 'Paid Dividend on ';
     } else if(type=='issuance'){
-        str = 'Counterparty Issuance';
+        str = 'Dogeparty Issuance';
     } else if(type=='order'){
         str = 'Order - Buy ';
     } else if(type=='cancel'){
@@ -1847,8 +1817,8 @@ function getHistoryHtml(data){
 // Handle resetting the asset information to a fresh/new state
 function resetAssetInfo(asset){
     $('#asset-name').text(' ');
-    $('#asset-value-btc').text(' ');
-    $('#asset-value-xcp').text(' ');
+    $('#asset-value-doge').text(' ');
+    $('#asset-value-xdp').text(' ');
     $('#asset-value-usd').text(' ');    
     $('#asset-total-supply').text(' ');
     $('#asset-marketcap').text(' ');
@@ -1877,8 +1847,8 @@ function loadAssetInfo(asset){
         $('#asset-info-more').attr('href', FW.XCHAIN_API + '/asset/' + asset);
         // Estimated Value
         var val = balance.estimated_value;
-        $('#asset-value-btc').text(numeral(val.btc).format('0,0.00000000'));
-        $('#asset-value-xcp').text(numeral(val.xcp).format('0,0.00000000'));
+        $('#asset-value-doge').text(numeral(val.doge).format('0,0.00000000'));
+        $('#asset-value-xdp').text(numeral(val.xdp).format('0,0.00000000'));
         $('#asset-value-usd').text('$' + numeral(val.usd).format('0,0.00'));
         var bal = balance.quantity,
             fmt = (balance.quantity.indexOf('.')==-1) ? '0,0' : '0,0.00000000';
@@ -1889,27 +1859,27 @@ function loadAssetInfo(asset){
             if(!o.error){
                 var fmt = (String(o.supply).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
                 $('#asset-total-supply').text(numeral(o.supply).format(fmt));
-                // console.log('xcp,supply,usd',o.estimated_value.xcp, o.supply, xcp_usd);
-                var xcp_usd = getAssetPrice('XCP'),
-                    mcap    = numeral((o.estimated_value.xcp * o.supply) * xcp_usd).format('0,0.00'),
-                    last    = numeral(o.estimated_value.xcp).format('0,0.00000000'),
+                // console.log('xdp,supply,usd',o.estimated_value.xdp, o.supply, xdp_usd);
+                var xdp_usd = getAssetPrice('XDP'),
+                    mcap    = numeral((o.estimated_value.xdp * o.supply) * xdp_usd).format('0,0.00'),
+                    last    = numeral(o.estimated_value.xdp).format('0,0.00000000'),
                     lock    = $('#asset-locked-status');
                 $('#asset-marketcap').text('$' + mcap);
                 $('#asset-last-price').text(last);
                 $('#asset-description').text(o.description);
                 // Force locked on certain items
-                if(['BTC','XCP'].indexOf(asset)!=-1)
+                if(['DOGE','XDP'].indexOf(asset)!=-1)
                     o.locked = true;
                 if(o.locked){
                     lock.removeClass('fa-unlock').addClass('fa-lock');
                 } else {
                     lock.removeClass('fa-lock').addClass('fa-unlock');
                 }
-                // Only allow feedback on XCP and assets, not BTC
-                if(asset=='BTC'){
+                // Only allow feedback on XDP and assets, not DOGE
+                if(asset=='DOGE'){
                     feedback.hide();
                 } else {
-                    feedback.attr('href','https://reputation.coindaddy.io/xcp/asset/' + asset);
+                    feedback.attr('href','https://reputation.coindaddy.io/xdp/asset/' + asset);
                     feedback.show();
                 }
                 // Display the description info if we have it
@@ -1933,17 +1903,17 @@ function loadAssetInfo(asset){
                 // Handle loading enhanced asset info
                 if(re1.test(desc)){
                     loadExtendedInfo();
-                } else if(asset=='BTC'){
+                } else if(asset=='DOGE'){
                     loadExtendedInfo({
-                        name: 'Bitcoin (BTC)',
-                        description: 'Bitcoin is digital money',
-                        website: 'https://bitcoin.org'
+                        name: 'Dogecoin (DOGE)',
+                        description: 'Dogecoin is fun digital money',
+                        website: 'https://dogecoin.com/'
                     });
-                } else if(asset=='XCP'){
+                } else if(asset=='XDP'){
                     loadExtendedInfo({
-                        name: 'Counterparty (XCP)',
-                        description: 'Counterparty is a free and open platform that puts powerful financial tools in the hands of everyone with an Internet connection. Counterparty creates a robust and secure marketplace directly on the Bitcoin blockchain, extending Bitcoin\'s functionality into a full fledged peer-to-peer financial platform.',
-                        website: 'https://counterparty.io'
+                        name: 'Dogeparty (XDP)',
+                        description: 'Dogeparty is a free and open platform that puts powerful financial tools in the hands of everyone with an Internet connection. Dogeparty creates a robust and secure marketplace directly on the Dogecoin blockchain, extending Dogecoin\'s functionality into a full fledged peer-to-peer financial platform.',
+                        website: 'https://dogeparty.net'
                     });
                 } else {
                     if(o.description==''){
@@ -1960,27 +1930,27 @@ function loadAssetInfo(asset){
                 arr.forEach(function(name){
                     var rating = o['rating_' + name],
                         text   = (rating>0) ? rating : 'NA';
-                    $('#rating_' + name).html('<a href="https://reputation.coindaddy.io/xcp/asset/' + asset + '" target="_blank"><div class="rateit" data-rateit-readonly="true" data-rateit-value="' + rating + '" data-rateit-ispreset="true"></div></a> <span class="rateit-score">' + text + '</span>')
+                    $('#rating_' + name).html('<a href="https://reputation.coindaddy.io/xdp/asset/' + asset + '" target="_blank"><div class="rateit" data-rateit-readonly="true" data-rateit-value="' + rating + '" data-rateit-ispreset="true"></div></a> <span class="rateit-score">' + text + '</span>')
                 });
                 $('.rateit').rateit();
             }
         }
-        // Hardcode the BTC values.. otherwise request the asset details
-        if(asset=='BTC'){
-            var btc = getAssetPrice('BTC',true),
-                xcp = getAssetPrice('XCP',true);
+        // Hardcode the DOGE values.. otherwise request the asset details
+        if(asset=='DOGE'){
+            var doge = getAssetPrice('DOGE',true),
+                xdp  = getAssetPrice('XDP',true);
             cb({
-                asset: 'BTC',
-                description: "Bitcoin is digital money",
+                asset: 'DOGE',
+                description: "Dogecoin is fun digital money",
                 estimated_value: {
-                    btc: 1,
-                    usd: btc.market_cap_usd,
-                    xcp: 1/xcp.price_btc
+                    doge: 1,
+                    usd: doge.market_cap_usd,
+                    xdp: xdp.price_doge
                 },
-                supply: btc.total_supply
+                supply: doge.total_supply
             });
             cb2({
-                asset: "BTC",
+                asset: "DOGE",
                 verify_status: "Not Verified",
                 rating_current: "5.00",
                 rating_30day: "5.00",
@@ -2074,17 +2044,17 @@ function updateAddressList(){
                     label   = label.replace(filter,'<span class="highlight-search-term">' + filter + '</span>');
                     address = address.replace(filter,'<span class="highlight-search-term">' + filter + '</span>');
                 }
-                var btc = getAddressBalance(address, 'BTC'),
-                    xcp = getAddressBalance(address, 'XCP'),
-                    btc_amt = (btc) ? btc.quantity : 0,
-                    xcp_amt = (xcp) ? xcp.quantity : 0,
+                var doge      = getAddressBalance(address, 'DOGE'),
+                    xdp      = getAddressBalance(address, 'XDP'),
+                    doge_amt = (doge) ? doge.quantity : 0,
+                    xdp_amt  = (xdp) ? xdp.quantity : 0,
                     fmt = '0,0.00000000';
                 html += '<li class="' + cls + ' address-list-item" data-address="' + id + '">';
                 html += '    <div class="address-list-info">';
                 html += '        <div class="address-list-label">' + label + '</div>';
                 html += '        <div class="address-list-address">' + address + '</div>';
-                html += '        <div class="address-list-amount"><div class="fw-icon-20 fw-icon-btc pull-left margin-right-5"></div> ' + numeral(btc_amt).format(fmt) + '</div>';
-                html += '        <div class="address-list-amount"><div class="fw-icon-20 fw-icon-xcp pull-left margin-right-5"></div> ' + numeral(xcp_amt).format(fmt) + '</div>';
+                html += '        <div class="address-list-amount"><div class="fw-icon-20 fw-icon-doge pull-left margin-right-5"></div> ' + numeral(doge_amt).format(fmt) + '</div>';
+                html += '        <div class="address-list-amount"><div class="fw-icon-20 fw-icon-xdp pull-left margin-right-5"></div> ' + numeral(xdp_amt).format(fmt) + '</div>';
                 html += '    </div>';
                 html += '</li>';
             }
@@ -2184,21 +2154,21 @@ function array2Object(arr){
 }
 
 /*
- * Counterparty related functions
+ * Dogeparty related functions
  */
 
 // Handle generating a send transaction
 function cpSend(network, source, destination, memo, memo_is_hex, currency, amount, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createSend(network, source, destination, memo, memo_is_hex, currency, getSatoshis(amount), fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, destination, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2226,15 +2196,15 @@ function cpSend(network, source, destination, memo, memo_is_hex, currency, amoun
 // Handle generating a multi-peer-multi-asset (MPMA) send transaction
 function cpMultiSend(network, source, destination, memo, memo_is_hex, asset, quantity, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating first counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating first dogeparty transaction...');
     // Create unsigned send transaction
     createMultiSend(network, source, destination, memo, memo_is_hex, asset, quantity, FW.MINIMUM_TX_FEE, null, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing first counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing first dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, destination, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting first counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting first dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2269,15 +2239,15 @@ function cpMultiSecondSend(network, source, destination, memo, memo_is_hex, asse
         ms  = 3000; // Sleep time in milliseconds
     // Try to generate the transaction until max tries
     if(count <= max){
-        updateTransactionStatus('pending', 'Generating second counterparty transaction...');
+        updateTransactionStatus('pending', 'Generating second dogeparty transaction...');
         // Create unsigned send transaction
         createMultiSend(network, source, destination, memo, memo_is_hex, asset, quantity, fee, txid, function(o){
             if(o && o.result){
-                updateTransactionStatus('pending', 'Signing second counterparty transaction...');
+                updateTransactionStatus('pending', 'Signing second dogeparty transaction...');
                 // Sign the transaction
                 signP2SHTransaction(network, source, destination, o.result, function(signedTx){
                     if(signedTx){
-                        updateTransactionStatus('pending', 'Broadcasting second counterparty transaction...');
+                        updateTransactionStatus('pending', 'Broadcasting second dogeparty transaction...');
                         // Broadcast the transaction
                         FW.BROADCAST_LOCK = false;
                         broadcastTransaction(network, signedTx, function(txid){
@@ -2322,15 +2292,15 @@ function cpMultiSecondSend(network, source, destination, memo, memo_is_hex, asse
 // Handle creating/signing/broadcasting an 'Issuance' transaction
 function cpIssuance(network, source, asset, quantity, divisible, description, destination, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createIssuance(network, source, asset, quantity, divisible, description, destination, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2358,15 +2328,15 @@ function cpIssuance(network, source, asset, quantity, divisible, description, de
 // Handle creating/signing/broadcasting an 'Broadcast' transaction
 function cpBroadcast(network, source, text, value, feed_fee, timestamp, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createBroadcast(network, source, text, value, feed_fee, timestamp, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2394,15 +2364,15 @@ function cpBroadcast(network, source, text, value, feed_fee, timestamp, fee, cal
 // Handle creating/signing/broadcasting an 'Dividend' transaction
 function cpDividend(network, source, asset, dividend_asset, quantity_per_unit, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createDividend(network, source, asset, dividend_asset, quantity_per_unit, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2430,15 +2400,15 @@ function cpDividend(network, source, asset, dividend_asset, quantity_per_unit, f
 // Handle creating/signing/broadcasting an 'Cancel' transaction
 function cpCancel(network, source, tx_hash, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createCancel(network, source, tx_hash, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2466,15 +2436,15 @@ function cpCancel(network, source, tx_hash, fee, callback){
 // Handle creating/signing/broadcasting an 'BTCpay' transaction
 function cpBtcpay(network, source, order_match_id, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createBtcpay(network, source, order_match_id, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     FW.BROADCAST_LOCK = false;
                     broadcastTransaction(network, signedTx, function(txid){
@@ -2503,15 +2473,15 @@ function cpBtcpay(network, source, order_match_id, fee, callback){
 // Handle generating a send transaction
 function cpOrder(network, source, get_asset, give_asset, get_quantity, give_quantity, expiration, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createOrder(network, source, get_asset, give_asset, getSatoshis(get_quantity), getSatoshis(give_quantity), expiration, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2539,15 +2509,15 @@ function cpOrder(network, source, get_asset, give_asset, get_quantity, give_quan
 // Handle creating/signing/broadcasting an 'Burn' transaction
 function cpBurn(network, source, quantity, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createBurn(network, source, quantity, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2575,15 +2545,15 @@ function cpBurn(network, source, quantity, fee, callback){
 // Handle creating/signing/broadcasting an 'Destroy' transaction
 function cpDestroy(network, source, asset, quantity, memo, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createDestroy(network, source, asset, quantity, memo, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2611,15 +2581,15 @@ function cpDestroy(network, source, asset, quantity, memo, fee, callback){
 // Handle creating/signing/broadcasting an 'Sweep' transaction
 function cpSweep(network, source, destination, flags, memo, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
     createSweep(network, source, destination, flags, memo, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, destination, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2646,17 +2616,17 @@ function cpSweep(network, source, destination, flags, memo, fee, callback){
 
 
 // Handle creating/signing/broadcasting an 'Dispenser' transaction
-function cpDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, callback){
+function cpDispenser(network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
-    updateTransactionStatus('pending', 'Generating counterparty transaction...');
+    updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
-    createDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, function(o){
+    createDispenser(network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, function(o){
         if(o && o.result){
-            updateTransactionStatus('pending', 'Signing counterparty transaction...');
+            updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
             signTransaction(network, source, source, o.result, function(signedTx){
                 if(signedTx){
-                    updateTransactionStatus('pending', 'Broadcasting counterparty transaction...');
+                    updateTransactionStatus('pending', 'Broadcasting dogeparty transaction...');
                     // Broadcast the transaction
                     broadcastTransaction(network, signedTx, function(txid){
                         if(txid){
@@ -2681,7 +2651,7 @@ function cpDispenser(network, source, destination, asset, escrow_amount, give_am
     });
 }
 
-// Handle sending request to counterparty servers
+// Handle sending request to dogeparty servers
 function cpRequest(network, data, callback){
     var net  = (network=='testnet') ? 'testnet' : 'mainnet',
         info = FW.WALLET_SERVER_INFO[net],
@@ -2964,8 +2934,8 @@ function createSweep(network, source, destination, flags, memo, fee, callback){
 
 
 // Handle creating dispenser transaction
-function createDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, callback){
-    // console.log('createDispenser=',network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, callback);
+function createDispenser(network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, callback){
+    // console.log('createDispenser=',network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, callback);
     var data = {
        method: "create_dispenser",
        params: {
@@ -2973,7 +2943,7 @@ function createDispenser(network, source, destination, asset, escrow_amount, giv
             asset: asset,
             escrow_quantity: parseInt(escrow_amount),
             give_quantity: parseInt(give_amount),
-            mainchainrate: parseInt(btc_amount),
+            mainchainrate: parseInt(doge_amount),
             status:  parseInt(status),
             fee: parseInt(fee),
             allow_unconfirmed_inputs: true
@@ -3196,7 +3166,7 @@ function broadcastTransaction(network, tx, callback){
         }, 5000);
     }
     console.log('signed transaction=', tx);
-    var net  = (network=='testnet') ? 'BTCTEST' : 'BTC';
+    var net  = (network=='testnet') ? 'DOGETEST' : 'DOGE';
     // First try to broadcast using the XChain API
     $.ajax({
         type: "POST",
@@ -3318,7 +3288,7 @@ function dialogComingSoon(){
 function dialogAbout(){
     BootstrapDialog.show({
         type: 'type-default',
-        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> About FreeWallet',
+        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> About DogeWallet',
         id: 'dialog-about',
         closeByBackdrop: false,
         message: $('<div></div>').load('html/about.html')
@@ -3330,7 +3300,7 @@ function dialogAbout(){
 function dialogDonate(){
     BootstrapDialog.show({
         type: 'type-default',
-        title: '<i class="fa fa-lg fa-fw fa-btc"></i> Donate',
+        title: '<i class="fa fa-lg fa-fw fa-doge"></i> Donate',
         id: 'dialog-donate',
         closeByBackdrop: false,
         message: $('<div></div>').load('html/donate.html')
@@ -3341,14 +3311,14 @@ function dialogDonate(){
 function dialogViewAddress(address){
     BootstrapDialog.show({
         type: 'type-default',
-        cssClass: 'btc-wallet-address',
+        cssClass: 'doge-wallet-address',
         closeByBackdrop: false,
         title: '<i class="fa fa-lg fa-fw fa-qrcode"></i> View Address',
         message: function(dialog){
             var msg = $('<div class="text-center"></div>');
             addr = (address) ? address : getWalletAddress();
             msg.qrcode({ text: addr });
-            msg.append('<div style="margin-top:10px" class="btc-wallet-blackbox">' + addr + '</div>');
+            msg.append('<div style="margin-top:10px" class="doge-wallet-blackbox">' + addr + '</div>');
             return msg;
         },
         buttons:[{
@@ -3399,7 +3369,7 @@ function dialogViewPrivateKey(address){
                 net  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
                 addr = (address) ? address : FW.WALLET_ADDRESS,
                 key  = getPrivateKey(net, addr, true);
-            msg.append('<div style="margin-top:10px" class="btc-wallet-blackbox">' + key + '</div>');
+            msg.append('<div style="margin-top:10px" class="doge-wallet-blackbox">' + key + '</div>');
             msg.append('<div class="alert alert-danger fade in center bold">' +
                             '<h3>Write this private key down and keep it safe!</h3>' +
                             '<ul>' +
@@ -3446,7 +3416,7 @@ function dialogPassword( enable, callback ){
     BootstrapDialog.show({
         type: 'type-default',
         title: '<i class="fa fa-lg fa-fw fa-lock"></i> ' + title,
-        cssClass: 'btc-wallet-password',
+        cssClass: 'doge-wallet-password',
         closable: false,
         closeByBackdrop: false,
         message: function(dialog){
@@ -3537,7 +3507,7 @@ function dialogPassphrase(){
         message: function(dialog){
             var msg = $('<div></div>');
             msg.append('<p>Your twelve-word wallet passphrase is shown in the black box below.</p>');
-            msg.append('<div class="btc-wallet-passphrase">' + getWalletPassphrase() + '</div>');
+            msg.append('<div class="doge-wallet-passphrase">' + getWalletPassphrase() + '</div>');
             msg.append('<div class="alert alert-danger fade in center bold">' +
                             '<h3>Write your passphrase down and keep it safe!</h3>' +
                             '<ul>' +
@@ -3594,7 +3564,7 @@ function dialogImportPrivateKey(){
         message: function(dialog){
             var msg = $('<div class="center"></div>');
             msg.append('<p>Please enter your unencrypted private key and click \'Ok\'</p>');
-            msg.append('<input type="text" class="btc-wallet-blackbox" id="importPrivateKey">');
+            msg.append('<input type="text" class="doge-wallet-blackbox" id="importPrivateKey">');
             return msg;
         },
         onshown: function(dialog){
@@ -3636,7 +3606,7 @@ function dialogImportWatchAddress(){
         message: function(dialog){
             var msg = $('<div class="center"></div>');
             msg.append('<p>Please enter the address you would like to add and click \'Ok\'</p>');
-            msg.append('<input type="text" class="btc-wallet-blackbox" id="importWatchOnlyAddress">');
+            msg.append('<input type="text" class="doge-wallet-blackbox" id="importWatchOnlyAddress">');
             return msg;
         },
         onshown: function(dialog){
@@ -3704,7 +3674,7 @@ function dialogUpdateAvailable(version){
         title: '<i class="fa fa-lg fa-fw fa-upload"></i> New version available!',
         message: function(dialog){
             var msg = $('<div class="center"></div>');
-            msg.append('<p>A new version of FreeWallet (' + version + ') is now available for download!</p>');
+            msg.append('<p>A new version of DogeWallet (' + version + ') is now available for download!</p>');
             return msg;
         },
         buttons:[{
@@ -3725,8 +3695,8 @@ function dialogUpdateAvailable(version){
                         os   = require('os'),
                         plat = os.platform(),
                         arch = os.arch(),
-                        file = 'FreeWallet.',
-                        url  = 'https://github.com/jdogresorg/freewallet-desktop/releases/download/v' + version + '/';
+                        file = 'DogeWallet.',
+                        url  = 'https://github.com/DogepartyXDP/dogewallet-desktop/releases/download/v' + version + '/';
                     // Determine the correct file to download based off platform and architecture
                     if(plat=='darwin'){
                         file += 'osx64.dmg';
@@ -3740,7 +3710,7 @@ function dialogUpdateAvailable(version){
                     url += file;
                     nw.Shell.openExternal(url);
                 } else {
-                    var url = 'https://github.com/jdogresorg/freewallet/releases/tag/v' + version;
+                    var url = 'https://github.com/DogepartyXDP/dogewallet-desktop/releases/tag/v' + version;
                     window.open(url);
                 }
             }
@@ -3925,7 +3895,7 @@ function dialogSignTransaction(){
 // 'Burn' dialog box
 function dialogBurn(){
     // Make sure wallet is unlocked
-    if(dialogCheckLocked('burn BTC for XCP'))
+    if(dialogCheckLocked('burn DOGE for XDP'))
         return;
     BootstrapDialog.show({
         type: 'type-default',
@@ -3972,7 +3942,7 @@ function dialogDispenserBuy(){
         type: 'type-default',
         id: 'dialog-dispenser-buy',
         closeByBackdrop: false,
-        title: '<i class="fa fa-fw fa-btc"></i> Buy ' + FW.DIALOG_DATA.name,
+        title: '<i class="fa fa-fw fa-doge"></i> Buy ' + FW.DIALOG_DATA.name,
         message: $('<div></div>').load('html/dispensers/dispenser-buy.html'),
     });
 }
@@ -4071,7 +4041,7 @@ function dialogLogout(){
         title: '<i class="fa fa-lg fa-fw fa-power-off"></i> Logout?',
         message: function(dialog){
             var msg = $('<div class="center"></div>');
-            msg.append('<p>Are you sure you want to logout of Freewallet?</p>');
+            msg.append('<p>Are you sure you want to logout of Dogewallet?</p>');
             msg.append('<p>This action will remove all of your wallet information from this device.');
             msg.append('<p><div class="alert alert-danger fade in center bold">Please make sure your 12-word passphrase is written down before you logout!</p>');
             msg.append('<div class="checkbox" id="dialog-logout-confirm"><label><input type="checkbox" id="dialog-logout-confirm-checkbox"> I have <u>written down</u> or otherwise <u>securely stored</u> my passphrase before logging out.</label></div>');
@@ -4201,20 +4171,20 @@ function dialogWelcome(){
         cssClass: 'dialog-welcome',
         closable: false,
         closeByBackdrop: false,
-        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> Welcome to FreeWallet',
+        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> Welcome to DogeWallet',
         message: function(dialog){
             var msg = $('<div class="text-center"></div>');
             msg.append('<img src="images/logo.png" style="width:200px;margin-bottom:20px;">');
-            msg.append('<p>FreeWallet is a free wallet for Bitcoin and Counterparty, the world’s first protocol for decentralized financial tools.</p>')
+            msg.append('<p>DogeWallet is a free wallet for Dogecoin and Dogeparty, a protocol for decentralized financial tools.</p>')
             msg.append( '<div class="row">' +
                             '<div class="col-xs-12 col-sm-6">' +
                                 '<h3><i class="fa fa-lock"></i> Secure</h3>'+
                                 '<p>All encryption is handled client-side. Neither your passphrase nor any of your private information ever leaves your browser, workstation, or mobile device.</p>' +
-                                '<p>FreeWallet passphrases are highly secure, and protect your wallet from any brute force attacks. They are also rather easy to learn and hard to mistype.</p>' +
+                                '<p>DogeWallet passphrases are highly secure, and protect your wallet from any brute force attacks. They are also rather easy to learn and hard to mistype.</p>' +
                             '</div>' +
                             '<div class="col-xs-12 col-sm-6">' +
                                 '<h3><i class="fa fa-cloud"></i> Simple</h3>'+
-                                '<p>With FreeWallet, your passphrase is literally your wallet, and all of your addresses and keys are generated on-the-fly when you log in.</p>' +
+                                '<p>With DogeWallet, your passphrase is literally your wallet, and all of your addresses and keys are generated on-the-fly when you log in.</p>' +
                                 '<p>There are no wallet files to backup or secure, and using your passphrase you can access your wallet from any trusted machine with a web browser.</p>' +
                             '</div>' +
                        '</div>');
@@ -4251,39 +4221,39 @@ function dialogLicenseAgreement(){
         title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> License Agreement',
         message: function(dialog){
             var msg = $('<div></div>');
-            msg.append('<p>You must read and accept the following agreement in order to use FreeWallet:</p>')
+            msg.append('<p>You must read and accept the following agreement in order to use DogeWallet:</p>')
             msg.append( '<div class="well">' +
                             '<h3>1. GRANT OF LICENSE</h3>' +
-                            '<p><b>1.1.</b> Subject to the terms and conditions contained within this end user agreement (the “Agreement“), Freewallet.io grants the “User” (or “you”) a non-exclusive, personal, non-transferable right to use the Services on your personal computer or other device that accesses the Internet, namely freewallet.io, FreeWallet Mobile, FreeWallet Desktop, and Counterparty federated nodes (together, the “Services“). By clicking the “I Agree“ button if and where provided and/or using the Service, you consent to the terms and conditions set forth in this Agreement.</p>' +
-                            '<p><b>1.2.</b> The Services are not for use by (i) individuals under 18 years of age, (ii) individuals under the legal age of majority in their jurisdiction and (iii) individuals accessing the Services from jurisdictions from which it is illegal to do so. Counterwallet.io and Counterwallet federated nodes are unable to verify the legality of the Services in each jurisdiction and it is the User\'s responsibility to ensure that their use of the Services is lawful. Freewallet.io, FreeWallet Mobile, and FreeWallet Desktop are neither banks nor regulated financial services. Operators do not have access to the Bitcoins stored on the platform, instead Freewallet.io, FreeWallet Mobile, and FreeWallet Desktop simply provide a means to access Bitcoins, Counterparty (XCP), and other digital assets recorded on the Bitcoin blockchain. Bitcoin private keys are encrypted using the BIP32 Hierarchical Deterministic Wallet algorithm such that Freewallet.io, FreeWallet Mobile, and FreeWallet Desktop cannot access or recover Bitcoins, Counterparty (XCP), or other digital assets in the event of lost or stolen password. </p>' +
+                            '<p><b>1.1.</b> Subject to the terms and conditions contained within this end user agreement (the “Agreement“), dogeparty.net grants the “User” (or “you”) a non-exclusive, personal, non-transferable right to use the Services on your personal computer or other device that accesses the Internet, namely dogeparty.net, DogeWallet Mobile, DogeWallet Desktop, and Dogeparty federated nodes (together, the “Services“). By clicking the “I Agree“ button if and where provided and/or using the Service, you consent to the terms and conditions set forth in this Agreement.</p>' +
+                            '<p><b>1.2.</b> The Services are not for use by (i) individuals under 18 years of age, (ii) individuals under the legal age of majority in their jurisdiction and (iii) individuals accessing the Services from jurisdictions from which it is illegal to do so. Counterwallet.io and Counterwallet federated nodes are unable to verify the legality of the Services in each jurisdiction and it is the User\'s responsibility to ensure that their use of the Services is lawful. dogeparty.net, DogeWallet Mobile, and DogeWallet Desktop are neither banks nor regulated financial services. Operators do not have access to the Bitcoins stored on the platform, instead dogeparty.net, DogeWallet Mobile, and DogeWallet Desktop simply provide a means to access Bitcoins, Dogeparty (XDP), and other digital assets recorded on the Bitcoin blockchain. Bitcoin private keys are encrypted using the BIP32 Hierarchical Deterministic Wallet algorithm such that Dogeparty.net, DogeWallet Mobile, and DogeWallet Desktop cannot access or recover Bitcoins, Dogeparty (XDP), or other digital assets in the event of lost or stolen password. </p>' +
                             '<h3>2. NO WARRANTIES.</h3>' +
-                            '<p><b>2.1.</b> COUNTERPARTY, FREEWALLET.IO, AND COUNTERPARTY FEDERATED NODES DISCLAIM ANY AND ALL WARRANTIES, EXPRESSED OR IMPLIED, IN CONNECTION WITH THE SERVICES WHICH ARE PROVIDED TO THE USER “AS IS“ AND NO WARRANTY OR REPRESENTATION IS PROVIDED WHATSOEVER REGARDING ITS QUALITY, FITNESS FOR PURPOSE, COMPLETENESS OR ACCURACY.</p>' +
+                            '<p><b>2.1.</b> DOGEPARTY, DOGEPARTY.NET, AND DOGEPARTY FEDERATED NODES DISCLAIM ANY AND ALL WARRANTIES, EXPRESSED OR IMPLIED, IN CONNECTION WITH THE SERVICES WHICH ARE PROVIDED TO THE USER “AS IS“ AND NO WARRANTY OR REPRESENTATION IS PROVIDED WHATSOEVER REGARDING ITS QUALITY, FITNESS FOR PURPOSE, COMPLETENESS OR ACCURACY.</p>' +
                             '<p><b>2.2.</b> REGARDLESS OF BEST EFFORTS, WE MAKE NO WARRANTY THAT THE SERVICES WILL BE UNINTERRUPTED, TIMELY OR ERROR-FREE, OR THAT DEFECTS WILL BE CORRECTED.</p>' +
                             '<h3>3. YOUR REPRESENTATIONS AND WARRANTIES</h3>' +
                             '<p>Prior to your use of the Services and on an ongoing basis you represent, warrant, covenant and agree that:</p>' +
-                            '<p><b>3.1.</b> your use of the Services is at your sole option, discretion and risk, as neither Freewallet.io, Counterparty federated nodes, nor any individuals affiliated with the Freewallet or Counterparty teams can be held responsible for lost or stolen funds;</p>' +
+                            '<p><b>3.1.</b> your use of the Services is at your sole option, discretion and risk, as neither dogeparty.net, Dogeparty federated nodes, nor any individuals affiliated with the DogeWallet or Dogeparty teams can be held responsible for lost or stolen funds;</p>' +
                             '<p><b>3.2.</b> you are solely responsible for satisfying any and all applicable legal rules and/or obligations, to include the requirements of your local tax authorities, arising from your use of the Services in a given jurisdiction; </p>' +
-                            '<p><b>3.3.</b> the telecommunications networks and Internet access services required for you to access and use the Services are entirely beyond the control of the Services and neither FreeWallet nor the Services shall bear any liability whatsoever for any outages, slowness, capacity constraints or other deficiencies affecting the same; and</p>' +
+                            '<p><b>3.3.</b> the telecommunications networks and Internet access services required for you to access and use the Services are entirely beyond the control of the Services and neither DogeWallet nor the Services shall bear any liability whatsoever for any outages, slowness, capacity constraints or other deficiencies affecting the same; and</p>' +
                             '<p><b>3.4.</b> you are at least 18 years of age.</p>' +
                             '<h3>4. PROHIBITED USES</h3>' +
                             '<p><b>4.1</b> A user must not use the Services in any way that causes, or may cause, damage to the website or impairment of the availability or accessibility of the website; or in any way which is unlawful, illegal, fraudulent or harmful, or in connection with any unlawful, illegal, fraudulent or harmful purpose or activity. </p>' +
                             '<h3>5. BREACH</h3>' +
-                            '<p><b>5.1.</b> Without prejudice to any other rights, if a User breaches in whole or in part any provision contained herein, FreeWallet and/or the Services reserve the right to take such action as they deem fit, including terminating this Agreement or any other agreement in place with the User and/or taking legal action against such User.</p>' +
+                            '<p><b>5.1.</b> Without prejudice to any other rights, if a User breaches in whole or in part any provision contained herein, DogeWallet and/or the Services reserve the right to take such action as they deem fit, including terminating this Agreement or any other agreement in place with the User and/or taking legal action against such User.</p>' +
                             '<p><b>5.2.</b> You agree to fully indemnify, defend and hold harmless the Services and their operators and agents from and against all claims, demands, liabilities, damages, losses, costs and expenses, including legal fees and any other charges whatsoever, irrespective of cause, that may arise as a result of: (i) your breach of this Agreement, in whole or in part; (ii) violation by you of any law or any third party rights; and (iii) use by you of the Services.</p>' +
                             '<h3>6. LIMITATION OF LIABILITY</h3>' +
-                            '<p><b>6.1.</b> Under no circumstances, including negligence, shall FreeWallet nor the Services be liable for any special, incidental, direct, indirect or consequential damages whatsoever (including, without limitation, damages for loss of business profits, business interruption, loss of business information, or any other pecuniary loss) arising out of the use (or misuse) of the Services even if FreeWallet and/or the Services had prior knowledge of the possibility of such damages.</p>' +
+                            '<p><b>6.1.</b> Under no circumstances, including negligence, shall DogeWallet nor the Services be liable for any special, incidental, direct, indirect or consequential damages whatsoever (including, without limitation, damages for loss of business profits, business interruption, loss of business information, or any other pecuniary loss) arising out of the use (or misuse) of the Services even if DogeWallet and/or the Services had prior knowledge of the possibility of such damages.</p>' +
                             '<h3>7. AMENDMENT</h3>' +
-                            '<p>FreeWallet and the Services reserve the right to update or modify this Agreement or any part thereof at any time or otherwise change the Services without notice and you will be bound by such amended Agreement upon publication. Therefore, we encourage you check the terms and conditions contained in the version of the Agreement in force at such time. Your continued use of the Service shall be deemed to attest to your agreement to any amendments to the Agreement.</p>' +
+                            '<p>DogeWallet and the Services reserve the right to update or modify this Agreement or any part thereof at any time or otherwise change the Services without notice and you will be bound by such amended Agreement upon publication. Therefore, we encourage you check the terms and conditions contained in the version of the Agreement in force at such time. Your continued use of the Service shall be deemed to attest to your agreement to any amendments to the Agreement.</p>' +
                             '<h3>8. GOVERNING LAW</h3>' +
                             '<p>The Agreement and any matters relating hereto shall be governed by, and construed in accordance with, the laws of the state of California and the United States. You irrevocably agree that, subject as provided below, the courts of California shall have exclusive jurisdiction in relation to any claim, dispute or difference concerning the Agreement and any matter arising therefrom and irrevocably waive any right that it may have to object to an action being brought in those courts, or to claim that the action has been brought in an inconvenient forum, or that those courts do not have jurisdiction. Nothing in this clause shall limit the right of the Services to take proceedings against you in any other court of competent jurisdiction, nor shall the taking of proceedings in any one or more jurisdictions preclude the taking of proceedings in any other jurisdictions, whether concurrently or not, to the extent permitted by the law of such other jurisdiction.</p>' +
                             '<h3>9. SEVERABILITY</h3>' +
                             '<p>If a provision of this Agreement is or becomes illegal, invalid or unenforceable in any jurisdiction, that shall not affect the validity or enforceability in that jurisdiction of any other provision hereof or the validity or enforceability in other jurisdictions of that or any other provision hereof.</p>' +
                             '<h3>10. ASSIGNMENT</h3>' +
-                            '<p>FreeWallet and the Services reserve the right to assign this agreement, in whole or in part, at any time without notice. The User may not assign any of his/her rights or obligations under this Agreement.</p>' +
+                            '<p>DogeWallet and the Services reserve the right to assign this agreement, in whole or in part, at any time without notice. The User may not assign any of his/her rights or obligations under this Agreement.</p>' +
                             '<h3>11. MISCELLANEOUS</h3>' +
-                            '<p><b>11.1.</b> No waiver by FreeWallet nor by the Services of any breach of any provision of this Agreement (including the failure of FreeWallet and/or the Services to require strict and literal performance of or compliance with any provision of this Agreement) shall in any way be construed as a waiver of any subsequent breach of such provision or of any breach of any other provision of this Agreement.</p>' +
-                            '<p><b>11.2.</b> Nothing in this Agreement shall create or be deemed to create a partnership, agency, trust arrangement, fiduciary relationship or joint venture between you the User and FreeWallet, nor between you the User and the Services, to any extent.</p>' +
-                            '<p><b>11.3.</b> This Agreement constitutes the entire understanding and agreement between you the User and FreeWallet and the Services regarding the Services and supersedes any prior agreement, understanding, or arrangement between the same.</p>' +
+                            '<p><b>11.1.</b> No waiver by DogeWallet nor by the Services of any breach of any provision of this Agreement (including the failure of DogeWallet and/or the Services to require strict and literal performance of or compliance with any provision of this Agreement) shall in any way be construed as a waiver of any subsequent breach of such provision or of any breach of any other provision of this Agreement.</p>' +
+                            '<p><b>11.2.</b> Nothing in this Agreement shall create or be deemed to create a partnership, agency, trust arrangement, fiduciary relationship or joint venture between you the User and DogeWallet, nor between you the User and the Services, to any extent.</p>' +
+                            '<p><b>11.3.</b> This Agreement constitutes the entire understanding and agreement between you the User and DogeWallet and the Services regarding the Services and supersedes any prior agreement, understanding, or arrangement between the same.</p>' +
                 '</div>');
             msg.append('<div class="checkbox" id="dialog-license-agreement-confirm"><label><input type="checkbox" id="dialog-license-agreement-checkbox"> I have <u><i><b>read and accept</b></i></u> the above License Agreement.</label></div>');
             return msg;
@@ -4327,7 +4297,7 @@ function displayContextMenu(event){
                 loadPage('exchange'); 
             }
         }));
-        if(asset!='BTC'){
+        if(asset!='DOGE'){
             mnu.append(new nw.MenuItem({ 
                 label: 'View ' + asset + ' Dispensers',
                 click: function(){ 
@@ -4340,27 +4310,27 @@ function displayContextMenu(event){
             label: 'Send ' + asset + ' to...',
             click: function(){ dialogSend(); }
         }));
-        if(asset=='BTC'){
+        if(asset=='DOGE'){
             mnu.append(new nw.MenuItem({ 
-                label: 'Burn BTC for XCP...',
+                label: 'Burn DOGE for XDP...',
                 click: function(){ dialogBurn(); }
             }));
         }
-        if(asset!='BTC'){
+        if(asset!='DOGE'){
             mnu.append(new nw.MenuItem({ 
                 label: 'Create ' + asset + ' Dispenser...',
                 click: function(){ dialogDispenser(); }
             }));
         }
-        if(asset!='BTC' && asset!='XCP'){
+        if(asset!='DOGE' && asset!='XDP'){
             mnu.append(new nw.MenuItem({ 
                 label: 'Pay Dividends on ' + asset,
                 click: function(){ dialogPayDividend(); }
             }));
         }
-        if(asset!='BTC'){
+        if(asset!='DOGE'){
             mnu.append(new nw.MenuItem({ type: 'separator' }));
-            if(asset!='XCP'){
+            if(asset!='XDP'){
                 mnu.append(new nw.MenuItem({ 
                     label: 'Issue ' + asset + ' Supply',
                     click: function(){ dialogIssueSupply(); }
@@ -4374,7 +4344,7 @@ function displayContextMenu(event){
                 label: 'Destroy ' + asset + ' Supply',
                 click: function(){ dialogDestroy(); }
             }));
-            if(asset!='XCP'){
+            if(asset!='XDP'){
                 mnu.append(new nw.MenuItem({ 
                     label: 'Change ' + asset + ' Description',
                     click: function(){ dialogChangeDescription(); }
@@ -4415,17 +4385,9 @@ function displayContextMenu(event){
             }
         }));
         mnu.append(new nw.MenuItem({ 
-            label: 'View on Blocktrail.com',
-            click: function(){ 
-                var net = (FW.WALLET_NETWORK==2) ? 'tBTC' : 'BTC',
-                    url  = 'https://www.blocktrail.com/' + net + '/tx/' + tx;
-                nw.Shell.openExternal(url);
-            }
-        }));
-        mnu.append(new nw.MenuItem({ 
             label: 'View on Chain.so',
             click: function(){ 
-                var net = (FW.WALLET_NETWORK==2) ? 'BTCTEST' : 'BTC',
+                var net = (FW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE',
                     url  = 'https://chain.so/tx/' + net + '/' + tx;
                 nw.Shell.openExternal(url);
             }
@@ -4470,7 +4432,7 @@ function displayContextMenu(event){
     if(el.length!=0){
         var mnu    = new nw.Menu(),
             market = el.attr('data-market');
-        if(market!='XCP' && market!='BTC'){
+        if(market!='XDP' && market!='DOGE'){
             mnu.append(new nw.MenuItem({ 
                 label: 'Remove Market',
                 click: function(){ 
@@ -4486,7 +4448,7 @@ function displayContextMenu(event){
     if(el.length!=0){
         var mnu    = new nw.Menu(),
             market = el.attr('data-market');
-        if(market!='XCP' && market!='BTC'){
+        if(market!='XDP' && market!='DOGE'){
             mnu.append(new nw.MenuItem({ 
                 label: 'Open ' + market + ' market',
                 click: function(){ 
@@ -4508,7 +4470,7 @@ function displayContextMenu(event){
     if(el.length!=0){
         var mnu   = new nw.Menu(),
             asset = el.attr('data-asset');
-        if(asset!='XCP' && asset!='my-dispensers'){
+        if(asset!='XDP' && asset!='my-dispensers'){
             mnu.append(new nw.MenuItem({ 
                 label: 'Remove Watchlist',
                 click: function(){ 
@@ -4561,13 +4523,13 @@ function processURIData(data){
     if(data){
         console.log('processURIData data=',data);
         var addr = data,
-            btc  = /^(bitcoin|counterparty|freewallet):/i,
+            doge = /^(dogecoin|dogeparty|dogewallet):/i,
             url  = /^(http|https):/i,
             o    = { valid: false };
-        // Handle parsing in bitcoin and counterparty URI data
-        if(btc.test(data)){
+        // Handle parsing in dogecoin and dogeparty URI data
+        if(doge.test(data)){
             // Extract data into object
-            var x    = data.replace(btc,'').split('?'),
+            var x    = data.replace(doge,'').split('?'),
                 y    = (x[1]) ? x[1].split('&') : [],
                 addr = x[0];
             for (var i = 0; i < y.length; i++){
@@ -4675,7 +4637,7 @@ function processURIData(data){
                     });
                 }
                 ls.setItem('walletAddresses', JSON.stringify(FW.WALLET_ADDRESSES));
-                dialogMessage('<i class="fa fa-lg fa-fw fa-info-circle"></i> Import Successful', 'The following addresses have been added to Freewallet: <br/>' + txt);
+                dialogMessage('<i class="fa fa-lg fa-fw fa-info-circle"></i> Import Successful', 'The following addresses have been added to Dogewallet: <br/>' + txt);
             }
         } else if(o.address){
             // Check if wallet is locked... if so, notify user that they have to unlock wallet
@@ -4684,7 +4646,7 @@ function processURIData(data){
             // Show 'Send' tool and pass forward scanned 
             FW.DIALOG_DATA = {
                 destination: o.address,
-                token: o.asset || 'BTC',
+                token: o.asset || 'DOGE',
                 amount: o.amount || '',
                 message: o.message || ''
             }
@@ -4825,8 +4787,8 @@ function removeMarket(market){
     // Remove tab and tab content
     $("li.tab[data-market='" + market + "']").remove();
     $('#' + market).remove();
-    // Switch back to BTC tab
-    $('#markets-tabs a[href="#BTC"]').tab('show');
+    // Switch back to DOGE tab
+    $('#markets-tabs a[href="#DOGE"]').tab('show');
     // Handle removing from base pairs 
     if(FW.BASE_MARKETS.indexOf(market)!=-1){
         // Remove market from FW.BASE_MARKETS
@@ -5160,14 +5122,14 @@ function updateMarketAssetInfo(market){
                     more   = $(sel + ' .more-info'),
                     supply = $(sel + ' .supply-total'),
                     usd    = $(sel + ' .last-price-usd'),
-                    xcp    = $(sel + ' .last-price-xcp');
+                    xdp    = $(sel + ' .last-price-xdp');
                 supply.text(numeral(o.supply).format(fmt));
                 if(o.locked){
                     lock.removeClass('fa-unlock').addClass('fa-lock');
                 } else {
                     lock.removeClass('fa-lock').addClass('fa-unlock');
                 }
-                xcp.text(numeral(o.estimated_value.xcp).format('0,0.00000000'));
+                xdp.text(numeral(o.estimated_value.xdp).format('0,0.00000000'));
                 usd.text(numeral(o.estimated_value.usd).format('0,0.00'));
                 icon.attr('src',FW.XCHAIN_API + '/icon/' + asset + '.png');
                 more.attr('href',FW.XCHAIN_API + '/asset/' + asset);
@@ -5178,7 +5140,7 @@ function updateMarketAssetInfo(market){
             if(!o.error){
                 var rating = o['rating_current'],
                     text   = (rating>0) ? rating : 'NA',
-                    html   = '<a href="https://reputation.coindaddy.io/xcp/asset/' + asset + '" data-toggle="tooltip" data-placement="bottom" title="View Feedback" target="_blank"><div class="rateit" data-rateit-readonly="true" data-rateit-value="' + rating + '" data-rateit-ispreset="true"></div></a> <span class="rateit-score">' + text + '</span>';
+                    html   = '<a href="https://reputation.coindaddy.io/xdp/asset/' + asset + '" data-toggle="tooltip" data-placement="bottom" title="View Feedback" target="_blank"><div class="rateit" data-rateit-readonly="true" data-rateit-value="' + rating + '" data-rateit-ispreset="true"></div></a> <span class="rateit-score">' + text + '</span>';
                 html += '<a href="#" class="btn btn-xs btn-success pull-right" data-toggle="tooltip" data-placement="left" title="Leave Feedback" target="_blank"><i class="fa fa-lg fa-bullhorn auto-width"></i></a>'
                 $(sel + ' .reputation').html(html);
                 $('.rateit').rateit();
@@ -5348,7 +5310,7 @@ function addDispenserWatchlist(asset){
                   '                <th>Escrowed</th>' + 
                   '                <th>Give Amount</th>' + 
                   '                <th>Give Remaining</th>' + 
-                  '                <th>BTC Price</th>' + 
+                  '                <th>DOGE Price</th>' + 
                   '                <th>Status</th>' + 
                   '                <th></th>' + 
                   '            </tr>' +
@@ -5367,7 +5329,7 @@ function removeDispenserWatchlist(asset){
     // Remove tab and tab content
     $("li.tab[data-asset='" + asset + "']").remove();
     $('#' + asset).remove();
-    // Switch back to BTC tab
+    // Switch back to 'My Dispensers' tab
     $('#dispensers-tabs a[href="#my-dispensers"]').tab('show');
     // Handle removing from base pairs 
     if(FW.BASE_DISPENSERS.indexOf(asset)!=-1){

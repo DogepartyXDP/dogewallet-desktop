@@ -1,6 +1,6 @@
-FreeWallet - Desktop Wallet
+DogeWallet - Desktop Wallet
 ---
-FreeWallet is a free wallet which supports Bitcoin and Counterparty.
+DogeWallet is a free wallet which supports Dogecoin and Dogeparty.
 
 Build Notes
 ---
@@ -17,7 +17,7 @@ Run `build.sh` to handle generating builds on Mac/OSX
 Installation Instructions
 ---
 ```
-Windows : Download FreeWallet.exe, run it, complete the installer.
-Mac/OSX : Download FreeWallet.dmg, mount, and drag FreeWallet app to 'Applications' folder
-Linux   : Download FreeWallet.tgz, extract it, run FreeWallet/install.sh
+Windows : Download DogeWallet.exe, run it, complete the installer.
+Mac/OSX : Download DogeWallet.dmg, mount, and drag DogeWallet app to 'Applications' folder
+Linux   : Download DogeWallet.tgz, extract it, run DogeWallet/install.sh
 ```

@@ -178,8 +178,8 @@ $(document).ready(function(){
     // Populate base market tables/tabs
     FW.BASE_MARKETS.forEach(function(market){ addMarket(market); });
 
-    // Set BTC as the active tab (also hides all the non-active tab content panels we added)
-    $('#markets-tabs a[href="#BTC"]').tab('show');
+    // Set DOGE as the active tab (also hides all the non-active tab content panels we added)
+    $('#markets-tabs a[href="#DOGE"]').tab('show');
 
     // Initialize the datatables
     $('.datatable').DataTable(FW.MARKETS_DATATABLE_CONFIG);

@@ -1,19 +1,19 @@
 {
   "main": "index.html",
-  "name": "FreeWallet",
-  "description": "Freewallet is a free open source desktop wallet that supports Bitcoin and Counterparty",
-  "version": "0.9.18",
+  "name": "DogeWallet",
+  "description": "Dogewallet is a free open source desktop wallet that supports Dogecoin and Dogeparty",
+  "version": "0.1.0",
   "author": "Jeremy Johnson <j-dog@j-dog.net>",
   "license": "MIT",
   "user-agent": "%name %ver (%osinfo)",
   "repository": {
     "type": "git",
-    "url": "https://github.com/jdogresorg/freewallet-desktop.git"
+    "url": "https://github.com/DogepartyXDP/dogewallet-desktop.git"
   },
   "single-instance": true,
   "window": {
-    "title": "FreeWallet",
-    "icon": "images/freewallet-icon-180.png",
+    "title": "DogeWallet",
+    "icon": "images/dogewallet-icon-180.png",
     "toolbar": false,
     "min_width": 1024,
     "min_height": 768,
@@ -40,6 +40,7 @@
     "jquery.qrcode": "^1.0.3",
     "jquery.rateit": "^1.1.1",
     "moment": "^2.18.1",
-    "numeraljs": "^1.5.6"
+    "numeraljs": "^1.5.6",
+    "nw-builder": "^3.5.7"
   }
 }
