@@ -29,7 +29,7 @@ FW.NETWORK_INFO =  JSON.parse(ls.getItem('networkInfo')) || {};
 FW.WALLET_FORMAT = ls.getItem('walletFormat') || 0;
 
 // Minimum transaction fee
-FW.MINIMUM_TX_FEE_DEFAULT = 1350;
+FW.MINIMUM_TX_FEE_DEFAULT = 100000000;
 FW.MINIMUM_TX_FEE = ls.getItem('feeMinimum') || FW.MINIMUM_TX_FEE_DEFAULT;
 
 // Load current wallet address and address label
@@ -327,6 +327,7 @@ function createWallet( passphrase, isBip39=false ){
             bjName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
             bcNet  = bc.Networks[bcName], // Bitcore Network
             bjNet  = bj.networks[bjName]; // BitcoinJS Network
+            console.log('bcName, bcNet=',bcName, bcNet);
         var s = bc.HDPrivateKey.fromSeed(wallet, bcNet);
         for(var i=0;i<10;i++){
             var d = s.derive("m/0'/0/" + i),
@@ -347,6 +348,10 @@ function addNewWalletAddress(net=1, type='normal'){
     var ls   = localStorage;
     net      = (net=='testnet' || net==2) ? 2 : 1;
     network  = (net==2) ? 'testnet' : 'mainnet',
+    bcName   = (network=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+    bjName   = (network=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
+    bcNet    = bc.Networks[bcName], // Bitcore Network
+    bjNet    = bj.networks[bjName], // BitcoinJS Network
     addrtype = (type=='segwit') ? 7 : 1; 
     address  = false;
     // Lookup the highest indexed address so far
@@ -358,7 +363,7 @@ function addNewWalletAddress(net=1, type='normal'){
     idx++; // Increase index for new address
     // Generate new address
     var w = getWallet(),
-        n = bc.Networks[network],
+        n = bcNet,
         s = bc.HDPrivateKey.fromSeed(w, n),
         d = s.derive("m/0'/0/" + idx);
     address = bc.Address(d.publicKey, n).toString();
@@ -366,7 +371,7 @@ function addNewWalletAddress(net=1, type='normal'){
     // Support generating Segwit Addresses (Bech32)
     if(type=='segwit'){
         var netname = (net==2) ? 'testnet' : 'bitcoin';
-        var address = bitcoinjs.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bitcoinjs.networks[netname] }).address;
+        var address = bitcoinjs.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bjNet }).address;
         label = 'Segwit ' + label;
     }
     // Add the address to the wallet
@@ -451,7 +456,7 @@ function lockWallet(){
 // Get wallet addresses using given index 
 function getWalletAddress( index ){
     // console.log('getWalletAddress index=',index);
-    // update network (used in CWBitcore)
+    // update network (used in DWBitcore)
     var net    = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
         bcName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
         bcNet  = bc.Networks[bcName]; // Bitcore Network
@@ -494,7 +499,7 @@ function setWalletAddress( address, load=0 ){
 
 // Handle adding addresses to FW.WALLET_ADDRESSES array
 function addWalletAddress( network=1, address='', label='', type=1, index='', path='' ){
-    // console.log('addWalletAddress network,address,label,type,index=',network,address,label,type,index, path);
+    console.log('addWalletAddress network,address,label,type,index=',network,address,label,type,index, path);
     // Bail out if no address is passed
     if(address=='')
         return;
@@ -582,14 +587,15 @@ function addWalletPrivkey(key){
     // Verify that the private key is added
     var net     = FW.WALLET_NETWORK,                // Numeric
         network = (net==2) ? 'testnet' : 'mainnet', // Text
+        bcName  = (network=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+        bcNet   = bc.Networks[bcName], // Bitcore Network
         ls      = localStorage,
-        n       = bc.Networks[network],
         address = false;
     // Try to generate a public key and address using the key
     try {
         privkey = new bc.PrivateKey.fromWIF(key);
         pubkey  = privkey.toPublicKey();
-        address = pubkey.toAddress(n).toString();
+        address = pubkey.toAddress(bcNet).toString();
     } catch (e){
         console.log('error : ',e);
     }
@@ -652,10 +658,12 @@ function isValidWalletPassphrase( passphrase, isBip39=false ){
 
 // Validate address
 function isValidAddress(addr){
-    var net  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
-    // update network (used in CWBitcore)
-    NETWORK  = bc.Networks[net];
-    if(CWBitcore.isValidAddress(addr))
+    var net    = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
+        bcName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+        bcNet  = bc.Networks[bcName]; // Bitcore Network
+    // update network (used in DWBitcore)
+    NETWORK  = bcNet;
+    if(DWBitcore.isValidAddress(addr))
         return true;
     return false;
 }
@@ -1553,14 +1561,18 @@ function isBech32(addr) {
 // Get private key for a given network and address
 function getPrivateKey(network, address, prepend=false){
     var wallet = getWallet(),
-        net    = (network=='testnet') ? 'testnet' : 'livenet',
+        net    = (network=='testnet'||network==2) ? 'testnet' : 'mainnet',
+        bcName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+        bjName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
+        bcNet  = bc.Networks[bcName], // Bitcore Network
+        bjNet  = bj.networks[bjName], // BitcoinJS Network        
         priv   = false;
     // Check any we have a match in imported addresses
     if(FW.WALLET_KEYS[address])
         priv = FW.WALLET_KEYS[address];
     // Loop through HD addresses trying to find private key
     if(!priv){
-        var key = bc.HDPrivateKey.fromSeed(wallet, bc.Networks[net]),
+        var key = bc.HDPrivateKey.fromSeed(wallet, bcNet),
             idx = false;
         FW.WALLET_ADDRESSES.forEach(function(item){
             if(item.address==address)
@@ -1569,11 +1581,11 @@ function getPrivateKey(network, address, prepend=false){
         // If we found the address index, use it to generate private key
         if(idx !== false){
             var d = key.derive("m/0'/0/" + idx),
-                a = bc.Address(d.publicKey, bc.Networks[net]).toString();
+                a = bc.Address(d.publicKey, bcNet).toString();
             // Handle generating the bech32 address
             if(a!=address){
                 var netname = (network=='testnet') ? 'testnet' : 'bitcoin';
-                a = bitcoinjs.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bitcoinjs.networks[netname] }).address;
+                a = bitcoinjs.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bjNet }).address;
                 if(a==address){
                     priv = d.privateKey.toWIF();
                     if(prepend)
@@ -3007,12 +3019,13 @@ function signTransaction(network, source, destination, unsignedTx, callback){
         signHardwareWalletTransaction(network, source, unsignedTx);
     } else {
         var net      = (network=='testnet') ? 'testnet' : 'mainnet', 
-            netName  = (network=='testnet') ? 'testnet' : 'livenet', // bitcore
+            bcName   = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+            bcNet    = bc.Networks[bcName], // Bitcore Network
             callback = (typeof callback === 'function') ? callback : false,
             privKey  = getPrivateKey(net, source);
         // Set the appropriate network and get key
-        NETWORK   = bc.Networks[netName];
-        var cwKey = new CWPrivateKey(privKey);
+        NETWORK   = bcNet;
+        var dwKey = new DWPrivateKey(privKey);
         // Convert destination to array if not already
         if(typeof(destination)==='string')
             destination = [destination];
@@ -3091,7 +3104,7 @@ function signTransaction(network, source, destination, unsignedTx, callback){
             getUTXOs(net, source, utxoCb);
         } else {
             // Sign using bitcore
-            CWBitcore.signRawTransaction(unsignedTx, cwKey, cb);
+            DWBitcore.signRawTransaction(unsignedTx, dwKey, cb);
         }
     }
 }
@@ -3099,12 +3112,12 @@ function signTransaction(network, source, destination, unsignedTx, callback){
 // Handle signing a transaction based on what type of address it is
 function signP2SHTransaction(network, source, destination, unsignedTx, callback){
     var net        = (network=='testnet') ? 'testnet' : 'mainnet', 
-        netName    = (network=='testnet') ? 'testnet' : 'bitcoin', // bitcoinjs-lib
-        network    = bitcoinjs.networks[netName],
+        bjName     = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
+        bjNet      = bj.networks[bjName], // BitcoinJS Network        
         callback   = (typeof callback === 'function') ? callback : false,
         privKey    = getPrivateKey(net, source),
         cwKey      = new CWPrivateKey(privKey),
-        keyPair    = bitcoinjs.ECPair.fromWIF(cwKey.getWIF(), network),
+        keyPair    = bitcoinjs.ECPair.fromWIF(cwKey.getWIF(), bjNet),
         dataTx     = bitcoinjs.Transaction.fromHex(unsignedTx), // The unsigned second part of the 2 part P2SH transactions
         sigType    = bitcoinjs.Transaction.SIGHASH_ALL;         // This shouldn't be changed unless you REALLY know what you're doing
     // Loop through all inputs and sign
@@ -3166,7 +3179,6 @@ function broadcastTransaction(network, tx, callback){
         }, 5000);
     }
     console.log('signed transaction=', tx);
-    var net  = (network=='testnet') ? 'DOGETEST' : 'DOGE';
     // First try to broadcast using the XChain API
     $.ajax({
         type: "POST",
@@ -3184,7 +3196,9 @@ function broadcastTransaction(network, tx, callback){
                 if(txid)
                     console.log('Broadcasted transaction hash=',txid);
             } else {
+                console.log('failed to broadcast transaction');
                 // If the request to XChain API failed, fallback to chain.so API
+                var net  = (network=='testnet') ? 'DOGETEST' : 'DOGE';
                 $.ajax({
                     type: "POST",
                     url: 'https://chain.so/api/v2/send_tx/' + net,
@@ -3626,17 +3640,17 @@ function dialogImportWatchAddress(){
             hotkey: 13,
             action: function(dialog){
                 var address = $('#importWatchOnlyAddress').val(),
-                    network = 'mainnet',
+                    network = 'dogemainnet',
                     valid   = false;
                 // Check if the address is valid on mainnet
                 NETWORK  = bc.Networks[network];
-                if(CWBitcore.isValidAddress(address))
+                if(DWBitcore.isValidAddress(address))
                     valid = true;
                 // Check if address is valid on testnet
                 if(!valid){
-                    network = 'testnet';
+                    network = 'dogetestnet';
                     NETWORK = bc.Networks[network];
-                    if(CWBitcore.isValidAddress(address))
+                    if(DWBitcore.isValidAddress(address))
                         valid = true;
                 }
                 if(valid){
@@ -4541,7 +4555,7 @@ function processURIData(data){
         if(o.memo)
             o.message = o.memo;
         // Handle validating that the provided address is valid
-        if(addr.length>25 && CWBitcore.isValidAddress(addr)){
+        if(addr.length>25 && DWBitcore.isValidAddress(addr)){
             o.valid   = true;
             o.address = addr;
         } else {

@@ -29,27 +29,26 @@ bitcore.Networks.dogemainnet = bitcore.Networks.add({
 });
 // Dogecoin Testnet
 bitcore.Networks.dogetestnet = bitcore.Networks.add({
-  name: 'dogetestnet',
-  alias: 'dogetest',
-  pubkeyhash: 0x71,
-  privatekey: 0xf1,
-  scripthash: 0xc4,
-  xpubkey: 0x0432a9a8,
-  xprivkey: 0x0432a243,
-  networkMagic: 0xfcc1b7dc,
-  port: 18335
+	name: 'dogetestnet',
+	alias: 'dogetest',
+	pubkeyhash: 0x71,
+	privatekey: 0xf1,
+	scripthash: 0xc4,
+	xpubkey: 0x0432a9a8,
+	xprivkey: 0x0432a243,
+	networkMagic: 0xfcc1b7dc,
+	port: 18335
 });
 
 // this 'global' is overwritten by tests!
-// var NETWORK = (USE_TESTNET || USE_REGTEST) ? bitcore.Networks.testnet : bitcore.Networks.livenet;
-// var NETWORK = (USE_TESTNET || USE_REGTEST) ? 'dogetestnet' : 'dogelivenet';
+//var NETWORK = (USE_TESTNET || USE_REGTEST) ? 'dogetestnet':'dogelivenet';
 var NETWORK = 'dogelivenet';
 
-var CWHierarchicalKey = function(passphrase, password) {
+var DWHierarchicalKey = function(passphrase, password) {
   checkArgType(passphrase, "string");
   if (password) {
     checkArgType(password, "string");
-    passphrase = CWBitcore.decrypt(passphrase, password);
+    passphrase = DWBitcore.decrypt(passphrase, password);
   }
   // same as bitcoinjs-lib :
   // m : master key / 0' : first private derivation / 0 : external account / i : index
@@ -58,7 +57,7 @@ var CWHierarchicalKey = function(passphrase, password) {
   this.init(passphrase);
 }
 
-CWHierarchicalKey.prototype.init = function(passphrase) {
+DWHierarchicalKey.prototype.init = function(passphrase) {
   this.passphrase = passphrase;
 
   var words = $.trim(passphrase.toLowerCase()).split(' ');
@@ -73,7 +72,7 @@ CWHierarchicalKey.prototype.init = function(passphrase) {
     }
   }
 
-  var seed = CWHierarchicalKey.wordsToSeed(words);
+  var seed = DWHierarchicalKey.wordsToSeed(words);
 
   /*
    * for historical reasons we create an 'old' HDPrivateKey where the seed is used as a string and wrangled a bit
@@ -83,39 +82,39 @@ CWHierarchicalKey.prototype.init = function(passphrase) {
   this.HierarchicalKey = this.useOldHierarchicalKey ? this.oldHierarchicalKey : bitcore.HDPrivateKey.fromSeed(seed, NETWORK);
 }
 
-CWHierarchicalKey.wordsToSeed = function(words) {
+DWHierarchicalKey.wordsToSeed = function(words) {
   var m = new Mnemonic(words);
   return m.toHex();
 }
 
-CWHierarchicalKey.prototype.getOldAddressesInfos = function(callback) {
+DWHierarchicalKey.prototype.getOldAddressesInfos = function(callback) {
   var addresses = [];
-  var cwkeys = {};
+  var dwkeys = {};
 
   for (var i = 0; i <= 9; i++) {
 
     var derivedKey = this.oldHierarchicalKey.derive(this.basePath + i);
 
-    var cwk = new CWPrivateKey(derivedKey.privateKey);
-    var address = cwk.getAddress();
+    var dwk = new DWPrivateKey(derivedKey.privateKey);
+    var address = dwk.getAddress();
     addresses.push(address);
-    cwkeys[address] = cwk;
+    dwkeys[address] = dwk;
   }
 
-  Counterblock.getBalances(addresses, cwkeys, callback);
+  Dogeblock.getBalances(addresses, dwkeys, callback);
 }
 
-CWHierarchicalKey.prototype.getAddressKey = function(index) {
+DWHierarchicalKey.prototype.getAddressKey = function(index) {
   checkArgType(index, "number");
   var derivedKey = this.HierarchicalKey.derive(this.basePath + index);
-  return new CWPrivateKey(derivedKey.privateKey);
+  return new DWPrivateKey(derivedKey.privateKey);
 }
 
-CWHierarchicalKey.prototype.cryptPassphrase = function(password) {
-  return CWBitcore.encrypt(this.passphrase, password);
+DWHierarchicalKey.prototype.cryptPassphrase = function(password) {
+  return DWBitcore.encrypt(this.passphrase, password);
 }
 
-CWHierarchicalKey.prototype.getQuickUrl = function(password) {
+DWHierarchicalKey.prototype.getQuickUrl = function(password) {
   var url = location.protocol + '//' + location.hostname + '/#cp=';
   url += this.cryptPassphrase(password);
   return url;
@@ -123,12 +122,12 @@ CWHierarchicalKey.prototype.getQuickUrl = function(password) {
 
 
 // priv: private key wif or hex
-var CWPrivateKey = function(priv) {
+var DWPrivateKey = function(priv) {
   this.priv = null;
   this.init(priv);
 }
 
-CWPrivateKey.prototype.init = function(priv) {
+DWPrivateKey.prototype.init = function(priv) {
   try {
     if (typeof priv === "string") {
       priv = bitcore.PrivateKey(priv, NETWORK);
@@ -139,25 +138,25 @@ CWPrivateKey.prototype.init = function(priv) {
   }
 }
 
-CWPrivateKey.prototype.getAddress = function() {
+DWPrivateKey.prototype.getAddress = function() {
   return this.priv.toAddress(NETWORK).toString();
 }
 
-CWPrivateKey.prototype.getAltAddress = function() {
+DWPrivateKey.prototype.getAltAddress = function() {
   var tmpPriv = this.priv.toObject();
   tmpPriv.compressed = !tmpPriv.compressed;
 
   return bitcore.PrivateKey(tmpPriv).toAddress(NETWORK).toString();
 }
 
-CWPrivateKey.prototype.getAddresses = function() {
+DWPrivateKey.prototype.getAddresses = function() {
   return [
     this.getAddress(),
     this.getAltAddress()
   ];
 }
 
-CWPrivateKey.prototype.isValid = function() {
+DWPrivateKey.prototype.isValid = function() {
   try {
     return bitcore.Address.isValid(this.getAddress(), NETWORK, bitcore.Address.Pay2PubKeyHash);
   } catch (err) {
@@ -165,7 +164,7 @@ CWPrivateKey.prototype.isValid = function() {
   }
 }
 
-CWPrivateKey.prototype.getPub = function() {
+DWPrivateKey.prototype.getPub = function() {
   try {
     return this.priv.toPublicKey().toString();
   } catch (err) {
@@ -178,12 +177,12 @@ CWPrivateKey.prototype.getPub = function() {
  * @param {string} format    hex, base64
  * @returns {*}
  */
-CWPrivateKey.prototype.signMessage = function(message, format) {
+DWPrivateKey.prototype.signMessage = function(message, format) {
   var base64 = bitcore.Message(message).sign(this.priv); // always returns base64 string
   return bitcore.deps.Buffer(base64, 'base64').toString(format || 'base64');
 }
 
-CWPrivateKey.prototype.signRawTransaction = function(unsignedHex, disableIsFullySigned, cb) {
+DWPrivateKey.prototype.signRawTransaction = function(unsignedHex, disableIsFullySigned, cb) {
   if (typeof disableIsFullySigned === "function") {
     cb = disableIsFullySigned;
     disableIsFullySigned = null;
@@ -191,7 +190,7 @@ CWPrivateKey.prototype.signRawTransaction = function(unsignedHex, disableIsFully
   checkArgType(cb, "function");
 
   try {
-    CWBitcore.signRawTransaction(unsignedHex, this, disableIsFullySigned, cb);
+    DWBitcore.signRawTransaction(unsignedHex, this, disableIsFullySigned, cb);
   } catch (err) {
     // async.nextTick to avoid parent trycatch
     async.nextTick(function() {
@@ -200,16 +199,16 @@ CWPrivateKey.prototype.signRawTransaction = function(unsignedHex, disableIsFully
   }
 }
 
-CWPrivateKey.prototype.checkTransactionDest = function(txHex, destAdress) {
+DWPrivateKey.prototype.checkTransactionDest = function(txHex, destAdress) {
   checkArgsType(arguments, ["string", "object"]);
   try {
-    return CWBitcore.checkTransactionDest(txHex, this.getAddresses(), destAdress);
+    return DWBitcore.checkTransactionDest(txHex, this.getAddresses(), destAdress);
   } catch (err) {
     return false;
   }
 }
 
-CWPrivateKey.prototype.checkAndSignRawTransaction = function(unsignedHex, destAdress, disableIsFullySigned, cb) {
+DWPrivateKey.prototype.checkAndSignRawTransaction = function(unsignedHex, destAdress, disableIsFullySigned, cb) {
   if (typeof(destAdress) == 'string') {
     destAdress = [destAdress];
   }
@@ -233,27 +232,27 @@ CWPrivateKey.prototype.checkAndSignRawTransaction = function(unsignedHex, destAd
   }
 }
 
-CWPrivateKey.prototype.getWIF = function() {
+DWPrivateKey.prototype.getWIF = function() {
   return this.priv.toWIF();
 }
 
-CWPrivateKey.prototype.encrypt = function(message) {
-  return CWBitcore.encrypt(message, this.priv.toString());
+DWPrivateKey.prototype.encrypt = function(message) {
+  return DWBitcore.encrypt(message, this.priv.toString());
 }
 
-CWPrivateKey.prototype.decrypt = function(cryptedMessage) {
-  return CWBitcore.decrypt(cryptedMessage, this.priv.toString());
+DWPrivateKey.prototype.decrypt = function(cryptedMessage) {
+  return DWBitcore.decrypt(cryptedMessage, this.priv.toString());
 }
 
 // TODO: rename to be more generic
-var CWBitcore = {}
+var DWBitcore = {}
 
 /**
  *
  * @param {bitcore.Script} script
  * @returns {boolean}
  */
-CWBitcore.isOutScript = function(script) {
+DWBitcore.isOutScript = function(script) {
   return script.isPublicKeyOut() ||
     script.isPublicKeyHashOut() ||
     script.isMultisigOut() ||
@@ -261,7 +260,7 @@ CWBitcore.isOutScript = function(script) {
     script.isDataOut();
 }
 
-CWBitcore.isValidAddress = function(val) {
+DWBitcore.isValidAddress = function(val) {
   try {
     var p2pkh = bitcore.Address.isValid(val, NETWORK, bitcore.Address.Pay2PubKeyHash);
     if (!p2pkh) {
@@ -276,7 +275,7 @@ CWBitcore.isValidAddress = function(val) {
   }
 }
 
-CWBitcore.isValidMultisigAddress = function(val) {
+DWBitcore.isValidMultisigAddress = function(val) {
   try {
     var addresses = val.split("_");
     if (addresses.length != 4 && addresses.length != 5) {
@@ -288,7 +287,7 @@ CWBitcore.isValidMultisigAddress = function(val) {
       return false;
     }
     for (var a = 0; a < addresses.length; a++) {
-      if (!CWBitcore.isValidAddress(addresses[a])) {
+      if (!DWBitcore.isValidAddress(addresses[a])) {
         return false;
       }
     }
@@ -298,11 +297,11 @@ CWBitcore.isValidMultisigAddress = function(val) {
   }
 }
 
-CWBitcore.MultisigAddressToAddresses = function(val) {
+DWBitcore.MultisigAddressToAddresses = function(val) {
 
-  if (CWBitcore.isValidAddress(val)) {
+  if (DWBitcore.isValidAddress(val)) {
     return [val];
-  } else if (CWBitcore.isValidMultisigAddress(val)) {
+  } else if (DWBitcore.isValidMultisigAddress(val)) {
     var addresses = val.split("_");
     addresses.shift();
     addresses.pop();
@@ -313,10 +312,10 @@ CWBitcore.MultisigAddressToAddresses = function(val) {
   }
 }
 
-CWBitcore.genKeyMap = function(cwPrivateKeys) {
+DWBitcore.genKeyMap = function(dwPrivateKeys) {
   var wkMap = {};
-  cwPrivateKeys.forEach(function(cwPrivateKey) {
-    wkMap[cwPrivateKey.getAddress()] = cwPrivateKey.priv;
+  dwPrivateKeys.forEach(function(dwPrivateKey) {
+    wkMap[dwPrivateKey.getAddress()] = dwPrivateKey.priv;
   });
 
   return wkMap;
@@ -325,25 +324,25 @@ CWBitcore.genKeyMap = function(cwPrivateKeys) {
 /**
  *
  * @param {string} unsignedHex
- * @param {CWPrivateKey} cwPrivateKey
+ * @param {DWPrivateKey} dwPrivateKey
  * @param {boolean|function} [disableIsFullySigned]
  * @param {function} cb
  * @returns {*}
  */
-CWBitcore.signRawTransaction = function(unsignedHex, cwPrivateKey, disableIsFullySigned, cb) {
+DWBitcore.signRawTransaction = function(unsignedHex, dwPrivateKey, disableIsFullySigned, cb) {
   // make disableIsFullySigned optional
   if (typeof disableIsFullySigned === "function") {
     cb = disableIsFullySigned;
     disableIsFullySigned = null;
   }
   checkArgType(unsignedHex, "string");
-  checkArgType(cwPrivateKey, "object");
+  checkArgType(dwPrivateKey, "object");
   checkArgType(cb, "function");
 
   try {
     var tx = bitcore.Transaction(unsignedHex);
 
-    var keyMap = CWBitcore.genKeyMap([cwPrivateKey]);
+    var keyMap = DWBitcore.genKeyMap([dwPrivateKey]);
     var keyChain = [];
 
     async.forEachOf(
@@ -394,7 +393,7 @@ CWBitcore.signRawTransaction = function(unsignedHex, cwPrivateKey, disableIsFull
                     satoshis: bitcore.Unit.fromBTC(data['value']).toSatoshis()
                   });
 
-                  multiSigInfo = CWBitcore.extractMultiSigInfoFromScript(inputObj.output.script);
+                  multiSigInfo = DWBitcore.extractMultiSigInfoFromScript(inputObj.output.script);
 
                   inputObj.signatures = bitcore.Transaction.Input.MultiSig.normalizeSignatures(
                     tx,
@@ -406,7 +405,7 @@ CWBitcore.signRawTransaction = function(unsignedHex, cwPrivateKey, disableIsFull
 
                   tx.inputs[idx] = new bitcore.Transaction.Input.MultiSig(inputObj, multiSigInfo.publicKeys, multiSigInfo.threshold);
 
-                  addresses = CWBitcore.extractMultiSigAddressesFromScript(inputObj.output.script);
+                  addresses = DWBitcore.extractMultiSigAddressesFromScript(inputObj.output.script);
 
                   return cb(null, addresses);
                 }
@@ -419,10 +418,10 @@ CWBitcore.signRawTransaction = function(unsignedHex, cwPrivateKey, disableIsFull
                 satoshis: 0 // we don't know this value, setting 0 because otherwise it's going to cry about not being an INT
               });
 
-              multiSigInfo = CWBitcore.extractMultiSigInfoFromScript(inputObj.output.script);
+              multiSigInfo = DWBitcore.extractMultiSigInfoFromScript(inputObj.output.script);
               tx.inputs[idx] = new bitcore.Transaction.Input.MultiSig(inputObj, multiSigInfo.publicKeys, multiSigInfo.threshold);
 
-              addresses = CWBitcore.extractMultiSigAddressesFromScript(inputObj.output.script);
+              addresses = DWBitcore.extractMultiSigAddressesFromScript(inputObj.output.script);
 
               return cb(null, addresses);
 
@@ -512,7 +511,7 @@ CWBitcore.signRawTransaction = function(unsignedHex, cwPrivateKey, disableIsFull
   }
 };
 
-CWBitcore.extractMultiSigAddressesFromScript = function(script) {
+DWBitcore.extractMultiSigAddressesFromScript = function(script) {
   checkArgType(script, "object");
 
   if (!script.isMultisigOut()) {
@@ -529,7 +528,7 @@ CWBitcore.extractMultiSigAddressesFromScript = function(script) {
   });
 };
 
-CWBitcore.extractMultiSigInfoFromScript = function(script) {
+DWBitcore.extractMultiSigInfoFromScript = function(script) {
   checkArgType(script, "object");
 
   if (!script.isMultisigOut()) {
@@ -550,7 +549,7 @@ CWBitcore.extractMultiSigInfoFromScript = function(script) {
  * @param {bitcore.Transaction.Output} output
  * @returns {string} either address or list of addresses (as CSV) or "" for op_return
  */
-CWBitcore.extractAddressFromTxOut = function(output) {
+DWBitcore.extractAddressFromTxOut = function(output) {
   checkArgType(output, "object");
 
   switch (output.script.classify()) {
@@ -564,7 +563,7 @@ CWBitcore.extractAddressFromTxOut = function(output) {
       return output.script.toAddress(NETWORK).toString();
 
     case bitcore.Script.types.MULTISIG_OUT:
-      var addresses = CWBitcore.extractMultiSigAddressesFromScript(output.script);
+      var addresses = DWBitcore.extractMultiSigAddressesFromScript(output.script);
       return addresses.join(",");
 
     case bitcore.Script.types.DATA_OUT:
@@ -580,13 +579,13 @@ CWBitcore.extractAddressFromTxOut = function(output) {
  * @param {string} txHex
  * @returns {*}
  */
-CWBitcore.extractChangeTxoutValue = function(source, txHex) {
+DWBitcore.extractChangeTxoutValue = function(source, txHex) {
   checkArgsType(arguments, ["string", "string"]);
 
   var tx = bitcore.Transaction(txHex);
 
   return tx.outputs.map(function(output, idx) {
-    var address = CWBitcore.extractAddressFromTxOut(output);
+    var address = DWBitcore.extractAddressFromTxOut(output);
 
     if (address && address == source) {
       return output.satoshis;
@@ -604,14 +603,14 @@ CWBitcore.extractChangeTxoutValue = function(source, txHex) {
  * @param {string[]}  dest
  * @returns {boolean}
  */
-CWBitcore.checkTransactionDest = function(txHex, source, dest) {
+DWBitcore.checkTransactionDest = function(txHex, source, dest) {
   checkArgsType(arguments, ["string", "object", "object"]);
 
   source = [].concat.apply([], source.map(function(source) {
-    return CWBitcore.MultisigAddressToAddresses(source);
+    return DWBitcore.MultisigAddressToAddresses(source);
   }));
   dest = [].concat.apply([], dest.map(function(dest) {
-    return CWBitcore.MultisigAddressToAddresses(dest);
+    return DWBitcore.MultisigAddressToAddresses(dest);
   }));
 
   var tx = bitcore.Transaction(txHex);
@@ -633,7 +632,7 @@ CWBitcore.checkTransactionDest = function(txHex, source, dest) {
         break;
 
       case bitcore.Script.types.MULTISIG_OUT:
-        var addresses = CWBitcore.extractMultiSigAddressesFromScript(output.script);
+        var addresses = DWBitcore.extractMultiSigAddressesFromScript(output.script);
 
         var isSource = dest.sort().join() == addresses.sort().join();
         var isDest = source.sort().join() == addresses.sort().join();
@@ -658,7 +657,7 @@ CWBitcore.checkTransactionDest = function(txHex, source, dest) {
   return outputsValid.filter(function(v) { return !v; }).length === 0;
 }
 
-CWBitcore.compareOutputs = function(source, apiResponses) {
+DWBitcore.compareOutputs = function(source, apiResponses) {
   var t;
 
   // apiResponse might be a plain transaction hex
@@ -693,8 +692,8 @@ CWBitcore.compareOutputs = function(source, apiResponses) {
       }
 
       var outputsValid = tx0.outputs.map(function(output, idx) {
-        var addresses0 = CWBitcore.extractAddressFromTxOut(output).split(',').sort().join(',');
-        var addresses1 = CWBitcore.extractAddressFromTxOut(tx1.outputs[idx]).split(',').sort().join(',');
+        var addresses0 = DWBitcore.extractAddressFromTxOut(output).split(',').sort().join(',');
+        var addresses1 = DWBitcore.extractAddressFromTxOut(tx1.outputs[idx]).split(',').sort().join(',');
         var amount0 = output.satoshis;
         var amount1 = tx1.outputs[idx].satoshis;
 
@@ -710,20 +709,20 @@ CWBitcore.compareOutputs = function(source, apiResponses) {
   }
 }
 
-CWBitcore.pubKeyToPubKeyHash = function(pubKey) {
+DWBitcore.pubKeyToPubKeyHash = function(pubKey) {
   return bitcore.Address.fromPublicKey(bitcore.PublicKey(pubKey, {network: NETWORK}), NETWORK).toString();
 }
 
-CWBitcore.encrypt = function(message, password) {
+DWBitcore.encrypt = function(message, password) {
   return CryptoJS.AES.encrypt(message, password).toString();
 }
 
-CWBitcore.decrypt = function(cryptedMessage, password) {
+DWBitcore.decrypt = function(cryptedMessage, password) {
   return CryptoJS.enc.Utf8.stringify(CryptoJS.AES.decrypt(cryptedMessage, password));
 }
 
-CWBitcore.getQuickUrl = function(passphrase, password) {
+DWBitcore.getQuickUrl = function(passphrase, password) {
   var url = location.protocol + '//' + location.hostname + '/#cp=';
-  url += CWBitcore.encrypt(passphrase, password);
+  url += DWBitcore.encrypt(passphrase, password);
   return url;
 }

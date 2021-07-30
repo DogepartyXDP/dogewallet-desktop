@@ -18,8 +18,9 @@
 
 // Function to calculate and set fiat value based on asset amount
 function updateSendValue(amt){
+    console.log('updateSendValue amt=',amt);
     if(! $('#amount-value').prop('disabled')){
-        var val = (FW.ASSET_INFO.estimated_value.btc *  numeral(amt).value()) * btc_info.price_usd;
+        var val = (FW.ASSET_INFO.estimated_value.doge *  numeral(amt).value()) * doge_info.price_usd;
         if(!isFinite(val))
             val = 0;
         $('#amount-value').val(numeral(val).format('0,0.00'));
@@ -28,7 +29,7 @@ function updateSendValue(amt){
 
 // Function to calculate and display asset amount based on fiat value
 function updateSendAmount(val){
-    var amt = ((numeral(val).value() / btc_info.price_usd) / FW.ASSET_INFO.estimated_value.btc),
+    var amt = ((numeral(val).value() / doge_info.price_usd) / FW.ASSET_INFO.estimated_value.doge),
         fmt = (FW.ASSET_INFO.divisible) ? '0,0.00000000' : '0,0',
         val = $('#available').val();
     // If we have an available amount field, rely on that to determine proper format
@@ -41,11 +42,11 @@ function updateSendAmount(val){
 
 $(document).ready(function(){
 
-    // Stash current price info on BTC and XCP
-    var btc_info = getAssetPrice('BTC',true);
-        xcp_info = getAssetPrice('XCP',true);
-        type     = getFormType();
-        tip      = $('#amount-tooltip');
+    // Stash current price info on DOGE and XDP
+    var doge_info = getAssetPrice('DOGE',true);
+        xdp_info  = getAssetPrice('XDP',true);
+        type      = getFormType();
+        tip       = $('#amount-tooltip');
     // Change the look/feel of the form based on form type
     if(type=='send'){
         // On the 'Send Funds' form, resize the fee fields a bit since less space is available
@@ -111,10 +112,10 @@ $(document).ready(function(){
             // Force quantity to a multiple of what the dispenser is offering (disable for now, got some complaints of issues)
             // if(amt % min && amt < max)
             //     amt = (amt - (amt % min));
-            // Update the BTC amount to be based off the quantity
-            var btc = numeral((amt / min) * sat).format('0,0.00000000');
-            $('#btc-amount').val(btc);
-            updateBTCValue(btc);
+            // Update the DOGE amount to be based off the quantity
+            var doge = numeral((amt / min) * sat).format('0,0.00000000');
+            $('#btc-amount').val(doge);
+            updateDOGEValue(doge);
         }
         $(this).val(numeral(amt).format(fmt));
         updateSendValue(amt);

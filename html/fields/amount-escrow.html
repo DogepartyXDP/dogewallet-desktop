@@ -37,10 +37,10 @@ function updateEscrowAmount(val){
 
 $(document).ready(function(){
 
-    // Stash current price info on BTC and XCP
-    var btc_info = getAssetPrice('BTC',true);
-        xcp_info = getAssetPrice('XCP',true);
-        type     = getFormType();
+    // Stash current price info on DOGE and XDP
+    var doge_info = getAssetPrice('DOGE',true);
+        xcp_info  = getAssetPrice('XDP',true);
+        type      = getFormType();
 
     // Detect any amount change and format as valid number
     $('#escrow-amount').change(function(e){

@@ -18,8 +18,8 @@
     <div class="form-group" id="give-amount-field">
         <!-- Give Amount Field -->
     </div>
-    <div class="form-group" id="btc-amount-field">
-        <!-- BTC Amount Field -->
+    <div class="form-group" id="doge-amount-field">
+        <!-- DOGE Amount Field -->
     </div>
     <div class="form-group" id="tx-fee-field">
         <!-- Transaction Fee Field -->
@@ -50,7 +50,7 @@ function confirmCreateDispenser(vals){
         var network  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
             escrow_sat = (vals['escrow-amount'].indexOf('.')!=-1) ? numeral(vals['escrow-amount']).multiply(100000000).format('0') : numeral(vals['escrow-amount']).format('0'),
             give_sat   = (vals['escrow-amount'].indexOf('.')!=-1) ? numeral(vals['give-amount']).multiply(100000000).format('0') : numeral(vals['give-amount']).format('0'),
-            btc_sat    = parseInt(numeral(vals['btc-amount']).multiply(100000000).value()),
+            btc_sat    = parseInt(numeral(vals['doge-amount']).multiply(100000000).value()),
             fee_sat    = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
             asset      = vals.name, 
             status     = 0; // Hardcode to open for creating a dispenser... can close via dispensers interface
@@ -59,7 +59,7 @@ function confirmCreateDispenser(vals){
     // Confirm the action with the user
     var title = '<i class="fa fa-lg fa-fw fa-arrows-h"></i> Confirm Create Dispenser?',
         msg   = 'Escrow <b>' + vals['escrow-amount'] + ' ' + vals.name + '</b> in a dispenser at <br><b>' + vals.destination + '</b>';
-        msg  += '<br>Dispense <b>' + vals['give-amount'] + ' ' + vals.name + '</b> for <b>' + vals['btc-amount'] + ' BTC</b> each?';
+        msg  += '<br>Dispense <b>' + vals['give-amount'] + ' ' + vals.name + '</b> for <b>' + vals['doge-amount'] + ' DOGE</b> each?';
     dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
 }
 
@@ -76,7 +76,7 @@ function dialogWarnMultipleDispensers(vals){
 
 // Handle throwing a scary warning to discourage people from setting up dispensers on everyday use addresses
 function dialogWarnSameAddress(vals){
-    var message = '<div class="alert alert-danger" role="alert"><strong><center>Setting up a dispenser on an address you commonly use is not advised and can result in dispensing tokens unexpectedly and loss of funds!</center><br>Example: Withdrawing BTC from an exchange or sending BTC to this address from another address you control could trigger an unexpected dispense.</strong></div>';
+    var message = '<div class="alert alert-danger" role="alert"><strong><center>Setting up a dispenser on an address you commonly use is not advised and can result in dispensing tokens unexpectedly and loss of funds!</center><br>Example: Withdrawing DOGE from an exchange or sending DOGE to this address from another address you control could trigger an unexpected dispense.</strong></div>';
     message += '<center>Are you sure you want to continue setting up this dispenser?'
     dialogConfirm('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Warning', message, false, true, function(){
         confirmCreateDispenser(vals);
@@ -92,7 +92,7 @@ $(document).ready(function(){
     $('#available-field').load('html/fields/available.html');
     $('#escrow-amount-field').load('html/fields/amount-escrow.html');
     $('#give-amount-field').load('html/fields/amount-give.html');
-    $('#btc-amount-field').load('html/fields/amount-btc.html');
+    $('#doge-amount-field').load('html/fields/amount-doge.html');
     $('#tx-fee-field').load('html/fields/tx-fee.html');
 
     // Delay initializing some fields to give things a chance to load
@@ -165,8 +165,8 @@ $(document).ready(function(){
         }
 
         // Verify we have valid BTC amount 
-        if(numeral(vals['btc-amount']).value()==0){
-            errors.push('You must enter an BTC amount which is greater than 0!');
+        if(numeral(vals['doge-amount']).value()==0){
+            errors.push('You must enter an DOGE amount which is greater than 0!');
             $('#btc-amount').closest('.form-group').addClass('has-error has-danger');
         }
 

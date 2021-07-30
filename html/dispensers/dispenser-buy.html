@@ -6,14 +6,14 @@
     <div class="form-group" id="amount-field">
         <!-- Amount Field -->
     </div>
-    <div class="form-group" id="btc-amount-field">
-        <!-- BTC Amount Field -->
+    <div class="form-group" id="doge-amount-field">
+        <!-- DOGE Amount Field -->
     </div>
     <div class="form-group" id="tx-fee-field">
         <!-- Transaction Fee Field -->
     </div>
     <div class="text-right">
-        <div id="btn-submit" class="btn btn-success"><i class="fa fa-lg fa-fw fa-btc"></i> Buy Now</div>
+        <div id="btn-submit" class="btn btn-success"><i class="fa fa-lg fa-fw fa-doge"></i> Buy Now</div>
         <div id="btn-cancel" class="btn btn-danger margin-right-5"><i class="fa fa-lg fa-fw fa-ban"></i> Cancel</div>
     </div>
 </form>
@@ -25,7 +25,7 @@ $(document).ready(function(){
     // Load any field content
     $('#token-name-select-field').load('html/fields/token-name-select.html');
     $('#amount-field').load('html/fields/amount.html');
-    $('#btc-amount-field').load('html/fields/amount-btc.html');
+    $('#doge-amount-field').load('html/fields/amount-doge.html');
     $('#tx-fee-field').load('html/fields/tx-fee.html');
 
     // Delay initializing some fields to give things a chance to load
@@ -78,9 +78,9 @@ $(document).ready(function(){
         }
 
         // Throw error if amount is below dust amount
-        if(numeral(vals['btc-amount']).multiply(100000000).value()<=5430){
-            errors.push('BTC Amount must be greater than dust (0.00005430 BTC)!');
-            $('#btc-amount').closest('.form-group').addClass('has-error has-danger');
+        if(numeral(vals['doge-amount']).multiply(100000000).value()<=5430){
+            errors.push('DOGE Amount must be greater than dust (0.00005430 BTC)!');
+            $('#doge-amount').closest('.form-group').addClass('has-error has-danger');
         }
 
 
@@ -100,15 +100,15 @@ $(document).ready(function(){
             var confirmCb = function(){
                 var network = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                     source  = FW.WALLET_ADDRESS,
-                    amt_sat = parseInt(numeral(vals['btc-amount']).multiply(100000000).value()),
+                    amt_sat = parseInt(numeral(vals['doge-amount']).multiply(100000000).value()),
                     fee_sat = parseInt(numeral(vals['fee-amount']).multiply(100000000).value());
-                cpSend(network, source, data.destination, null, null, 'BTC', amt_sat, fee_sat, doneCb);
+                cpSend(network, source, data.destination, null, null, 'DOGE', amt_sat, fee_sat, doneCb);
             }
             // Confirm the action with the user
             var data    = FW.DIALOG_DATA;
             var title = '<img src="' + FW.XCHAIN_API + '/icon/' + data.asset + '.png" class="fw-icon-20 margin-right-5"> Confirm Buy ' + data.name + '?';
             var msg  = 'Buy <b>' + vals.amount + ' ' + data.name + '</b>';
-                msg += ' <br/>for <b>' + vals['btc-amount'] + ' BTC</b>';
+                msg += ' <br/>for <b>' + vals['doge-amount'] + ' DOGE</b>';
             dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
         }
     })

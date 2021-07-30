@@ -19,7 +19,7 @@
 // Function to calculate and set fiat value based on asset amount
 function updateGiveValue(amt){
     if(! $('#give-amount-value').prop('disabled')){
-        var val = (FW.ASSET_INFO.estimated_value.btc *  numeral(amt).value()) * btc_info.price_usd;
+        var val = (FW.ASSET_INFO.estimated_value.doge *  numeral(amt).value()) * doge_info.price_usd;
         if(!isFinite(val))
             val = 0;
         $('#give-amount-value').val(numeral(val).format('0,0.00'));
@@ -28,7 +28,7 @@ function updateGiveValue(amt){
 
 // Function to calculate and display asset amount based on fiat value
 function updateGiveAmount(val){
-    var amt = ((numeral(val).value() / btc_info.price_usd) / FW.ASSET_INFO.estimated_value.btc),
+    var amt = ((numeral(val).value() / doge_info.price_usd) / FW.ASSET_INFO.estimated_value.doge),
         fmt = (String($('#available').val()).indexOf('.')!=-1) ? '0,0.00000000' : '0,0';
     if(!isFinite(amt))
         amt = 0;
@@ -37,10 +37,10 @@ function updateGiveAmount(val){
 
 $(document).ready(function(){
 
-    // Stash current price info on BTC and XCP
-    var btc_info = getAssetPrice('BTC',true);
-        xcp_info = getAssetPrice('XCP',true);
-        type     = getFormType();
+    // Stash current price info on DOGE and XCP
+    var doge_info = getAssetPrice('DOGE',true);
+        xdp_info  = getAssetPrice('XDP',true);
+        type      = getFormType();
 
       // Detect any amount change and format as valid number
     $('#give-amount').change(function(e){

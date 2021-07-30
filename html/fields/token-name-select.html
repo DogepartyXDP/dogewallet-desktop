@@ -16,28 +16,34 @@ $(document).ready(function(){
     var type = getFormType(),
         tip  = $('#token-name-select-tooltip');
 
-    // Stash current price info on BTC and XCP
-    btc_info = getAssetPrice('BTC',true),
-    xcp_info = getAssetPrice('XCP',true);
+    // Stash current price info on DOGE and XDP
+    doge_info = getAssetPrice('DOGE',true),
+    xdp_info  = getAssetPrice('XDP',true);
 
     // Populate the token name / asset list
     var balances = getAddressBalance(FW.WALLET_ADDRESS),
         html     = '',
         el       = $('#token-name-select');
-    // Force "BTC" to be the only option for burning
+    // Force "DOGE" to be the only option for burning
     if(type=='burn'){
-        html += '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/BTC.png\' class=\'fw-icon-20 margin-right-5\'>BTC">BTC</option>';
+        html += '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/DOGE.png\' class=\'fw-icon-20 margin-right-5\'>DOGE">DOGE</option>';
     } else if(type=='dispenser-buy'){
         var o = FW.DIALOG_DATA;
         html += '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/' + o.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + o.name +'">' + o.name + '</option>';
     } else {
         if(balances && balances.data){
             balances.data.forEach(function(item){
-                // Skip BTC in some cases
-                if(item.asset=='BTC' && (type=='destroy'||type=='dispenser'))
+                // Skip DOGE in some cases
+                if(item.asset=='DOGE' && (type=='destroy'||type=='dispenser'))
                     return;
                 var asset = (item.asset_longname && item.asset_longname!='') ? item.asset_longname : item.asset;
-                html += '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/' + item.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + asset + '">' + asset + '</option>';
+                data = '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/' + item.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + asset + '">' + asset + '</option>';
+                // Put DOGE at top of the list
+                if(asset=='DOGE'){
+                    html = data + html;
+                } else {
+                    html += data;
+                }
             });
         }
 
@@ -89,10 +95,10 @@ $(document).ready(function(){
         // Callback function to handle saving current asset information
         var cb = function(o){
             FW.ASSET_INFO = o;
-            btc_info = getAssetPrice('BTC',true);
-            xcp_info = getAssetPrice('XCP',true);
-            // Handle enabling/disabling the fiat field based on if we detect some estimated BTC value
-            if(o.estimated_value.btc=='0.00000000'){
+            doge_info = getAssetPrice('DOGE',true);
+            xdp_info  = getAssetPrice('XDP',true);
+            // Handle enabling/disabling the fiat field based on if we detect some estimated DOGE value
+            if(o.estimated_value.doge=='0.00000000'){
                 $('#amount-value').prop('disabled',true);
                 $('#escrow-amount-value').prop('disabled',true);
                 $('#give-amount-value').prop('disabled',true);
@@ -102,14 +108,14 @@ $(document).ready(function(){
                 $('#give-amount-value').prop('disabled',false);
             }
         }
-        // If this is BTC, hardcode the values and skip getting asset info
-        if(val=='BTC'){
+        // If this is DOGE, hardcode the values and skip getting asset info
+        if(val=='DOGE'){
             cb({
-                asset: "BTC",
+                asset: "DOGE",
                 estimated_value: {
-                    btc: '1.00000000',
-                    usd: numeral(btc_info.price_usd).format('0.00'),
-                    xcp: numeral(xcp_info.price_btc).format('0.00000000'),
+                    doge: '1.00000000',
+                    usd: numeral(doge_info.price_usd).format('0.00'),
+                    xdp: numeral(xdp_info.price_doge).format('0.00000000'),
                 },
             });
             // Disable the memo
