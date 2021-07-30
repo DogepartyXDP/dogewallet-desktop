@@ -2,7 +2,7 @@
   "main": "index.html",
   "name": "DogeWallet",
   "description": "Dogewallet is a free open source desktop wallet that supports Dogecoin and Dogeparty",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Jeremy Johnson <j-dog@j-dog.net>",
   "license": "MIT",
   "user-agent": "%name %ver (%osinfo)",
