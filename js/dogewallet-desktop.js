@@ -1048,7 +1048,8 @@ function autoDogepay(network, o){
         id      = o.tx0_hash + '_' + o.tx1_hash,
         fee     = DW.NETWORK_INFO.fee_info.optimal, // Use high priority fee for order matches
         size    = 350,                              // 1 input is about 300 bytes... (TODO - Get actual tx size via pre-flight check)
-        fee_sat = getSatoshis(((fee / 1000) * size) * 0.00000001);
+        // fee_sat = getSatoshis(((fee / 1000) * size) * 0.00000001);
+        fee_sat = 100000000;
     // Check status of the wallet and hot-swap wallet into place if needed
     if(a==null){
         // If no wallet/dogepayWallet is found, bail out
@@ -3940,7 +3941,7 @@ function dialogDispenserBuy(){
         type: 'type-default',
         id: 'dialog-dispenser-buy',
         closeByBackdrop: false,
-        title: '<i class="fa fa-fw fa-doge"></i> Buy ' + DW.DIALOG_DATA.name,
+        title: 'Buy ' + DW.DIALOG_DATA.name,
         message: $('<div></div>').load('html/dispensers/dispenser-buy.html'),
     });
 }
