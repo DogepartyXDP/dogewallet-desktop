@@ -29,14 +29,14 @@ $(document).ready(function(){
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
         if(data.tx_hash){
             $('#tx_hash').val(data.tx_hash).prop('readonly', true);
         }
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Initialize any tooltips
         $('[data-toggle="tooltip"]').tooltip({ 
@@ -87,11 +87,11 @@ $(document).ready(function(){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
             // Lookup transaction data and verify it is a valid order and set source address
-            $.getJSON( FW.XCHAIN_API + '/api/tx/' + vals['tx_hash'], function(data){
+            $.getJSON( DW.XCHAIN_API + '/api/tx/' + vals['tx_hash'], function(data){
                 if(data.tx_hash==vals['tx_hash'] && data.tx_type=='Order' && data.status=='open'){
                     // Verify source address is in wallet
                     var found = false;
-                    FW.WALLET_ADDRESSES.forEach(function(item){
+                    DW.WALLET_ADDRESSES.forEach(function(item){
                         if(item.address==data.source)
                             found = true;
                     });
@@ -101,10 +101,10 @@ $(document).ready(function(){
                             if(tx){
                                 dialogClose('dialog-cancel-order');
                                 dialogMessage('<i class="fa fa-lg fa-check"></i> Order Cancellation Successful', '<center>Your order cancellation has been broadcast to the network and your order should be cancelled shortly.' +
-                                              '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                              '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                             }
                         }
-                        var network  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                        var network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                             fee_sat  = parseInt(numeral(vals['fee-amount']).multiply(100000000).value());
                         cpCancel(network, data.source, data.tx_hash, fee_sat, doneCb);
                     } else {

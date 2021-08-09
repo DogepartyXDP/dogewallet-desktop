@@ -620,7 +620,7 @@ li.history-list-received .history-list-amount {
 }
 #send-list {
     height:145px;
-    white-space: nowrap;  
+    /*white-space: nowrap;  */
     overflow: auto; 
     margin-top: 10px
 }
@@ -734,8 +734,8 @@ table.dataTable tbody th, table.dataTable tbody td {
     padding: 5px 5px;
 }
 
-#BTC.active .panel,
-#BTC.active .panel-heading {
+#DOGE.active .panel,
+#DOGE.active .panel-heading {
     border-top-left-radius: 0px !important;
 }
 

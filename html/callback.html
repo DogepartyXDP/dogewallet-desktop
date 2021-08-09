@@ -60,7 +60,7 @@ var getColor = function(url){
 
 $(document).ready(function(){
 
-    var data = FW.DIALOG_DATA;
+    var data = DW.DIALOG_DATA;
 
     // Load form field
     $('#source-address-field').load('html/fields/source-address.html');
@@ -68,7 +68,7 @@ $(document).ready(function(){
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
 
-        // Handle loading any data from FW.DIALOG_DATA
+        // Handle loading any data from DW.DIALOG_DATA
         var icon = $('.fw-callback-icon');
 
         // Display the hostname and protocol of the remote server
@@ -89,7 +89,7 @@ $(document).ready(function(){
         }
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Initialize any tooltips
         $('[data-toggle="tooltip"]').tooltip({ 

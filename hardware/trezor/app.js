@@ -68,7 +68,7 @@ function signTx(net='mainnet', source, path, unsignedTx, callback){
     var inputs  = [],
         outputs = [],
         network = (net=='testnet') ? '0x80000001' : '0x80000000', // default to mainnet
-        api_net = (net=='testnet') ? 'tbtc' : 'btc',
+        api_net = (net=='testnet') ? 'dogetest' : 'doge',
         tx      = bitcoin.Transaction.fromHex(unsignedTx),
         utxos   = {}; // object containing utxo hashes and specific output indexes to use
     // Convert BIP44 path into usable Trezor address_n
@@ -156,8 +156,8 @@ function signTx(net='mainnet', source, path, unsignedTx, callback){
 // @signedTx = Signed Transaction in hex format
 // @callback = Callback function
 function broadcastTx(network, signedTx, callback){
-    var net  = (network=='testnet') ? 'BTCTEST' : 'BTC',
-        host = (network=='testnet') ? 'testnet.xchain.io' : 'xchain.io';
+    var net  = (network=='testnet') ? 'DOGETEST' : 'DOGE',
+        host = (network=='testnet') ? 'dogeparty-testnet.xchain.io' : 'dogeparty.xchain.io';
     // First try to broadcast using the XChain API
     $.ajax({
         type: "POST",

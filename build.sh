@@ -20,7 +20,7 @@ if [ "$OSTYPE" != "darwin" ] ; then
     exit
 fi
 
-# Extract path to freewallet-desktop source code
+# Extract path to dogewallet-desktop source code
 base_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Extract app name and version from package.json

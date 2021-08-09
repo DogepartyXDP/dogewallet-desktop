@@ -46,8 +46,8 @@ $(document).ready(function(){
             placement: 'bottom'
         }); 
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
 
         if(data.token){
             $('#token-name-select').val(data.token);
@@ -55,7 +55,7 @@ $(document).ready(function(){
         }
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
     },100);
 
@@ -100,12 +100,12 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-destroy');
                     dialogMessage('<i class="fa fa-lg fa-trash"></i> Destroy Successful', '<center>Your destroy has been sent to the network and should be included to a block shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                 }
             }
             // Callback to run if user confirms action
             var confirmCb = function(){
-                var network  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                var network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                     fee_sat  = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
                     amt_sat = (vals.amount.indexOf('.')!=-1) ? numeral(vals.amount).multiply(100000000).format('0') : numeral(vals.amount).format('0')
                 cpDestroy(network, vals.source, vals.name, amt_sat, vals.memo, fee_sat, doneCb);

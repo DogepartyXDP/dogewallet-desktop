@@ -53,11 +53,11 @@ $(document).ready(function(){
         percent = 0;
 
     // Update bounty address and amount
-    $('#bounty-address').html('<a href="' + FW.XCHAIN_API + '/address/' + address + '" target="_blank">' + address + '</a>')
+    $('#bounty-address').html('<a href="' + DW.XCHAIN_API + '/address/' + address + '" target="_blank">' + address + '</a>')
     $('#bounty-amount').html(numeral(bounty).format('0,0') + ' XCP');
 
     // Lookup the current balance at the bounty address
-    $.getJSON(FW.XCHAIN_API + '/api/balances/' + address, function(o){
+    $.getJSON(DW.XCHAIN_API + '/api/balances/' + address, function(o){
         if(o.address==address){
             o.data.forEach(function(item){
                 if(item.asset=='XCP'){
@@ -73,17 +73,13 @@ $(document).ready(function(){
 
     // When a user clicks the donate now button, save bounty address and launch 'Send Funds' window
     $('#donate-now').click($.debounce(100, function(e){
-        FW.DIALOG_DATA = {
+        DW.DIALOG_DATA = {
             destination: address,
             token: 'XCP'
         };
         dialogSend();
     }));
 
-    // Display the "Get Access Now" dialog interface so users can purchase an access token
-    $('#access-now').click($.debounce(100, function(e){
-        dialogBuyAccess();
-    }));    
 });
 </script>
 
