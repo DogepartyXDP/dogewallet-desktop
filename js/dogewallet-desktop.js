@@ -795,7 +795,7 @@ function getAssetReputationInfo(asset, callback, force){
 // Check if wallet price/balance info should be updated
 function checkUpdateWallet(){
     updateNetworkInfo();
-    checkDonateReminder();    
+    checkDonateReminder();
     checkDogepayTransactions();  
     var addr = getWalletAddress();
     if(addr){
@@ -812,9 +812,8 @@ function checkUpdateWallet(){
 function checkDonateReminder(){
     var ls   = localStorage,
         last = ls.getItem('walletDonationReminder') || 0,
-        ms   = 604800000,          // 1 week
-        skip = checkTokenAccess(); // Skip begging if user has purchased FULLACCESS or XCHAINPEPE 
-    if((parseInt(last) + ms)  <= Date.now() && !skip){
+        ms   = 604800000; // 1 week
+    if((parseInt(last) + ms)  <= Date.now()){
         dialogDonate();
         ls.setItem('walletDonationReminder', Date.now());
     }
