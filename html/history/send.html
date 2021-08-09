@@ -52,24 +52,24 @@
 
 <!-- Code to load/update data -->
 <script type="text/javascript">
-    var testnet = (FW.WALLET_NETWORK==2) ? true : false,
-        tx      = FW.CURRENT_TRANSACTION.tx;
+    var testnet = (DW.WALLET_NETWORK==2) ? true : false,
+        tx      = DW.CURRENT_TRANSACTION.tx;
 
     $(document).ready(function(){
 
-        if(FW.CURRENT_TRANSACTION.asset=='DOGE'){
+        if(DW.CURRENT_TRANSACTION.asset=='DOGE'){
 
-            var net = (FW.WALLET_NETWORK==2) ? '/testnet' : '';
+            var net = (DW.WALLET_NETWORK==2) ? '/testnet' : '';
 
             // Update 'more info' link to point to transaction url
             $('#history-info-more').attr('href','https://live.blockcypher.com/doge/tx/' + tx);
 
             // Request transaction information from blockcypher
-            var url = (FW.WALLET_NETWORK==1) ? 'https://api.blockcypher.com/v1/doge/main/txs/' + tx : '';
+            var url = (DW.WALLET_NETWORK==1) ? 'https://api.blockcypher.com/v1/doge/main/txs/' + tx : '';
             $.getJSON(url, function(o){
                 if(o.hash){
                     $('#source').html(o.inputs[0].addresses[0]);
-                    $('#destination').html(FW.WALLET_ADDRESS);
+                    $('#destination').html(DW.WALLET_ADDRESS);
                     $('#asset').html('<img src="images/icons/DOGE.png" class="asset-icon-sm pull-left">DOGE');
                     $('#tx-hash').html(o.hash);
                     $('#quantity').text(numeral(o.outputs[0].value).multiply(0.00000001).format('0,0.00000000'));
@@ -80,17 +80,17 @@
                 }
             }).fail(function(){
                 // Failover #1 - Request transaction info from chain.so
-                var net = (FW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE',
+                var net = (DW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE',
                     url = 'https://chain.so/api/v2/tx/' + net + '/' + tx;
                 $.getJSON(url, function(o){
                     if(o.data && o.data.txid){
                         $('#source').html(o.data.inputs[0].address);
-                        $('#destination').html(FW.WALLET_ADDRESS);
+                        $('#destination').html(DW.WALLET_ADDRESS);
                         $('#asset').html('<img src="images/icons/DOGE.png" class="asset-icon-sm pull-left">DOGE');
                         $('#tx-hash').html(o.data.txid);
                         var qty = o.data.sent_value;
                         o.data.outputs.forEach(function(out){
-                            if(out.address == FW.WALLET_ADDRESS)
+                            if(out.address == DW.WALLET_ADDRESS)
                                 qty = out.value;
                         });
                         $('#quantity').text(numeral(qty).format('0,0.00000000'));
@@ -104,15 +104,15 @@
             });
         } else {
             // Update 'more info' link to point to transaction url
-            $('#history-info-more').attr('href', FW.XCHAIN_API + '/tx/' + tx);
+            $('#history-info-more').attr('href', DW.XCHAIN_API + '/tx/' + tx);
 
             // Request transaction information from dogeparty.xchain.io
-            $.getJSON(FW.XCHAIN_API + '/api/tx/' + tx, function( o ){
+            $.getJSON(DW.XCHAIN_API + '/api/tx/' + tx, function( o ){
                 if(!o.error){
                     var asset = (o.asset_longname && o.asset_longname!='') ? o.asset_longname : o.asset;
                     $('#source').html(o.source);
                     $('#destination').html(o.destination);
-                    $('#asset').html('<img src="' + FW.XCHAIN_API + '/icon/' + o.asset + '.png" class="asset-icon-sm pull-left">' + asset);
+                    $('#asset').html('<img src="' + DW.XCHAIN_API + '/icon/' + o.asset + '.png" class="asset-icon-sm pull-left">' + asset);
                     $('#tx-hash').html(o.tx_hash);
                     var fmt = (String(o.quantity).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
                     $('#quantity').text(numeral(o.quantity).format(fmt));

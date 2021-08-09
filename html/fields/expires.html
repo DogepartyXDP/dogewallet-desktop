@@ -8,15 +8,15 @@
         <span class="input-group-addon">Estimated Expiration Block #</span>
         <input type="text" class="form-control" name="expires_block" id="expires_block" placeholder="" readonly>
     </div>
-    <input type="text" class="form-control" name="expires" id="expires" placeholder="5000" style="width:110px" value="8064">
+    <input type="text" class="form-control" name="expires" id="expires" placeholder="5000" style="width:110px" value="129,600">
 </div>
 
 <script>
 // Function to handle updating the 'Available' information
 function updateExpirationBlock(){
     var expires = $('#expires').val().replace(',',''),
-        network = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-        current = FW.NETWORK_INFO.network_info[network].block_height;
+        network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+        current = DW.NETWORK_INFO.network_info[network].block_height;
         block   = parseInt(current) + parseInt(expires) + 1;
     $('#expires_block').val(numeral(block).format('0,0'));
 }

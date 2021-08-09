@@ -37,13 +37,13 @@ $(document).ready(function(){
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
         if(data.message)
             $('#sign-message').val(data.message);
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Initialize any tooltips
         $('[data-toggle="tooltip"]').tooltip({ 
@@ -89,7 +89,7 @@ $(document).ready(function(){
         } else {
             updateTransactionStatus('pending', 'Signing message...');
             // Handle signing the message and populating the 'Signed' box
-            var network   = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+            var network   = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                 signature = null;
             try {
                 signature = signMessage(network, vals.source, vals.message);

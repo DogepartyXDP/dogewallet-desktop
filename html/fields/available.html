@@ -15,7 +15,7 @@
 // Function to handle updating the 'Available' information
 function updateAvailableQuantity(){
     var asset   = $('#token-name-select').val(),
-        balance = getAddressBalance(FW.WALLET_ADDRESS, asset),
+        balance = getAddressBalance(DW.WALLET_ADDRESS, asset),
         fmt     = (String(balance.quantity).indexOf('.')!=-1) ? '0,0.00000000' : '0,0',
         avail   = numeral(balance.quantity).format(fmt),
         val     = (balance && balance.estimated_value) ? balance.estimated_value.usd : 0,

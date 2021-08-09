@@ -4,25 +4,25 @@
     <script type="text/javascript" src="node_modules/jquery/dist/jquery.min.js"></script>
 </head>
 <body>
-    <h2>Freewallet - Supported URI Schemes</h2>
+    <h2>DogeWallet - Supported URI Schemes</h2>
     <ul id="urls"></ul>
 </body>
 </html>
 <script>
 var urls = [
-    'bitcoin:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC',
-    'bitcoin:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC?amount=1.23456789',
-    'bitcoin:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC?amount=1.23456789&message=test',
-    'counterparty:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC',
-    'counterparty:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC?amount=1.23456789',
-    'counterparty:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC?amount=1.23456789&asset=XCP',
-    'counterparty:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC?amount=1.23456789&asset=XCP&memo=test',
-    'counterparty:1Donatet2LrNpuWByAnH8gc9Wh9zSzZuLC?amount=1.23456789&asset=XCP&message=test',
-    'counterparty:?action=sign&message=test',
-    'counterparty:?action=sign&message=test&icon=https%3A%2F%2Fxchain.io%2Ficon%2FCOINDADDY.png&callback=http%3A%2F%2Fdev.authparty.io%2Fapi%2Fv1%2Fauthorize_login%3Fprovider%3D005f15c462fe3eb536c4bec5fef42c%26modal_id%3DbemghXSwNXxhqzd',
-    'counterparty:?action=broadcast&message=Some%20Message',
-    'counterparty:?action=signtx&tx=your-unsigned-transaction-here',
-    "freewallet:?action=import&device=trezor&data=%7B%2244'/0'/0'%7C0%22:%221EMV8Xz6odQrjzRExPiTZrLcFDZ3fr3Viu%22,%2244'/0'/0'%7C1%22:%221PMRoTp11MLPmayCDSkpdhD9JqCp85ZLug%22%7D"
+    'dogecoin:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ',
+    'dogecoin:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ?amount=1.23456789',
+    'dogecoin:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ?amount=1.23456789&message=test',
+    'dogeparty:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ',
+    'dogeparty:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ?amount=1.23456789',
+    'dogeparty:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ?amount=1.23456789&asset=XDP',
+    'dogeparty:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ?amount=1.23456789&asset=XDP&memo=test',
+    'dogeparty:DDonateSk9p1NNwH4dur1Kev3YvSv349hQ?amount=1.23456789&asset=XDP&message=test',
+    'dogeparty:?action=sign&message=test',
+    'dogeparty:?action=sign&message=test&icon=https%3A%2F%2Fxchain.io%2Ficon%2FCOINDADDY.png&callback=http%3A%2F%2Fdev.authparty.io%2Fapi%2Fv1%2Fauthorize_login%3Fprovider%3D005f15c462fe3eb536c4bec5fef42c%26modal_id%3DbemghXSwNXxhqzd',
+    'dogeparty:?action=broadcast&message=Some%20Message',
+    'dogeparty:?action=signtx&tx=your-unsigned-transaction-here',
+    "dogewallet:?action=import&device=trezor&data=%7B%2244'/0'/0'%7C0%22:%221EMV8Xz6odQrjzRExPiTZrLcFDZ3fr3Viu%22,%2244'/0'/0'%7C1%22:%221PMRoTp11MLPmayCDSkpdhD9JqCp85ZLug%22%7D"
 ];
 $(document).ready(function(){
 

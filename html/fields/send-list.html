@@ -7,7 +7,14 @@
     <div style="margin-top: 7px;font-style: italic;"><b>List Format:</b> Address, Asset, Quantity, Memo (optional)</div>
 </div>
 <div class="col-sm-12">
-    <textarea type="text" class="form-control lined" id="send-list" name="send-list" placeholder="Address, Asset, Quantity, Memo (optional)" data-minlength="1" style="height: 194px;" required rows="9"></textarea>
+    <textarea type="text" class="form-control lined" id="send-list" name="send-list" placeholder="Address, Asset, Quantity, Memo (optional)" data-minlength="1" style="height: 194px;" required rows="9" readonly>
+This feature is disabled until the Dogecoin network supports segregated witness (segwit) and P2SH data encoding. 
+
+If you would like to be able to send multiple Dogeparty assets in a single transaction, please voice your support for adding segregated witness (segwit) support on the Dogecoin network.
+
+https://www.reddit.com/r/dogecoindev/
+
+    </textarea>
 </div>
 
 <script>
@@ -71,8 +78,8 @@ $(document).ready(function(){
         var type = $(this).val();
         var val = $('#token-name-select').val(),
             el  = $('#memo');
-        // If this is BTC, hardcode the values and skip getting asset info
-        if(type=='single' && val=='BTC'){
+        // If this is DOGE, hardcode the values and skip getting asset info
+        if(type=='single' && val=='DOGE'){
             // Disable the memo
             el.attr('disabled', true);
             el.val('');

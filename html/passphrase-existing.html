@@ -5,7 +5,7 @@
     <div class="input-group pull-left" style="width:180px" id="amount-value-wrapper">
         <label class="input-group-addon">Format</label>
         <select id="format-select" name="format" class="selectpicker">
-            <option data-content="Counterwallet">Counterwallet</option>
+            <option data-content="Dogewallet">Dogewallet</option>
             <option data-content="BIP39">BIP39</option>
         </select>
     </div>
@@ -18,7 +18,7 @@
 <script>
 $(document).ready(function(){
 
-    var isBip39    = FW.WALLET_FORMAT,
+    var isBip39    = DW.WALLET_FORMAT,
         passphrase = null;
 
     // Focus the passphrase immediately

@@ -69,8 +69,8 @@
                                 <a href="#" data-toggle="tooltip" title='This determines which bitcoin network you would prefer to use' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
                             </label>
                             <select class="col-sm-9 selectpicker" name="network" id="settings-network">
-                                <option value="1">Bitcoin Core (Mainnet)</option>
-                                <option value="2">Bitcoin Core (Testnet)</option>
+                                <option value="1">Dogecoin (Mainnet)</option>
+                                <option value="2">Dogecoin (Testnet)</option>
                             </select>
                         </div>
                     </fieldset>
@@ -300,16 +300,16 @@ $(document).ready(function(){
         ss = sessionStorage;
 
     // Load the wallet address information
-    $('#settings-address').val(FW.WALLET_ADDRESS);
-    $('#settings-network').val(FW.WALLET_NETWORK);
-    $('#settings-address-label').val(FW.WALLET_ADDRESS_LABEL);
+    $('#settings-address').val(DW.WALLET_ADDRESS);
+    $('#settings-network').val(DW.WALLET_NETWORK);
+    $('#settings-address-label').val(DW.WALLET_ADDRESS_LABEL);
 
     // Define possible networks
     var networks = ['mainnet','testnet'];
 
     // Populate the server info fields
     $.each(networks,function(idx, name){
-        var o = FW.WALLET_SERVER_INFO[name];
+        var o = DW.WALLET_SERVER_INFO[name];
         $('#' + name + '-cp-host').val(o.host);
         $('#' + name + '-cp-port').val(o.port);
         $('#' + name + '-cp-user').val(o.user);
@@ -334,7 +334,7 @@ $(document).ready(function(){
     var val = ls.getItem('feePriority') || 'High';
     $('#current-priority').val(val);
 
-    var fee = numeral(FW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
+    var fee = numeral(DW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
     $('#minimum-tx-fee').val(fee);
 
     // Restore any API keys
@@ -361,8 +361,8 @@ $(document).ready(function(){
 
     // Handle resetting the minimum fee
     $('#reset-min-fee').click(function(){
-        FW.MINIMUM_TX_FEE = FW.MINIMUM_TX_FEE_DEFAULT;
-        var fee = numeral(FW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
+        DW.MINIMUM_TX_FEE = DW.MINIMUM_TX_FEE_DEFAULT;
+        var fee = numeral(DW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
         $('#minimum-tx-fee').val(fee);
         ls.removeItem('feeMinimum');
     });
@@ -385,11 +385,11 @@ $(document).ready(function(){
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>'));
             // Reset displayed fee to current setting
-            var fee = numeral(FW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
+            var fee = numeral(DW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
             $('#minimum-tx-fee').val(fee);
         } else {
             // Update minimum fee and save setting
-            FW.MINIMUM_TX_FEE = sats;
+            DW.MINIMUM_TX_FEE = sats;
             ls.setItem('feeMinimum', sats);
             dialogMessage('<i class="fa fa-lg fa-fw fa-floppy-o"></i> Minimum Fee Saved', 'Your minimum fee information has been successfully saved.');
         }
@@ -422,7 +422,7 @@ $(document).ready(function(){
                 };
             });
             // Save updated server information
-            FW.WALLET_SERVER_INFO = o;
+            DW.WALLET_SERVER_INFO = o;
             ls.setItem('serverInfo',JSON.stringify(o));
             // Handle setting the xchain URL
             setXChainAPI();
@@ -438,7 +438,7 @@ $(document).ready(function(){
     // Show change/edit address list form when user clicks the qrcode/address 
     $('#settings-address-label').change(function(e){
         var label = $(this).val();
-        setWalletAddressLabel(FW.WALLET_ADDRESS, label);
+        setWalletAddressLabel(DW.WALLET_ADDRESS, label);
         dialogMessage('<i class="fa fa-lg fa-fw fa-floppy-o"></i> Address Label Saved', 'Your address label information has been successfully saved.');
     });
 

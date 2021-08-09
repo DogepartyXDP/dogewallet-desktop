@@ -63,9 +63,9 @@ $(document).ready(function(){
     $('#source-address-field').load('html/fields/source-address.html');
     $('#token-description-field').load('html/fields/token-description.html');
 
-    // Stash current price info on BTC and XCP
-    var btc_info   = getAssetPrice('BTC',true),
-        xcp_info   = getAssetPrice('XCP',true);
+    // Stash current price info on DOGE and XCP
+    var doge_info = getAssetPrice('DOGE',true),
+        xdp_info  = getAssetPrice('XDP',true);
 
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
@@ -144,19 +144,19 @@ $(document).ready(function(){
         if(name && name!=val)
             $(this).val(name);
         if(val!='' && val!=null){
-            $.getJSON( FW.XCHAIN_API + '/api/asset/' + name, function(o){
+            $.getJSON( DW.XCHAIN_API + '/api/asset/' + name, function(o){
                 // An error indicates asset is not registered
                 if(o.error){
                     // Verify parent asset is owned by current address
                     if(type=='Subasset'){
                         // Lookup if this asset is already registered to another address... send to coindaddy to make purchase offer
-                        $.getJSON( FW.XCHAIN_API + '/api/asset/' + parent, function(data){
+                        $.getJSON( DW.XCHAIN_API + '/api/asset/' + parent, function(data){
                             // Parent asset does not exist yet, notify user they must first register named asset before child
                             if(data.error){
                                 dialogMessage('Notice', '<center>Before you can create <b><i>' + name + '</i></b>, you must first create the parent token <b><i>' + parent +'</i></b></center>', true);
                             } else {
                                 // Parent asset is owned by another address
-                                if(data.owner!=FW.WALLET_ADDRESS){
+                                if(data.owner!=DW.WALLET_ADDRESS){
                                     dialogMessage('Notice', '<center><p>The name <b><i>' + parent + '</i></b> is already registered to address ' + data.owner + '</p>' +
                                                   '<p>You may still purchase <b><i>' + name + '</b></i> from the current owner if they have listed it for sale.</p>' + 
                                                   '<a href="https://coindaddy.io/search?network=xcp&q=' + name + '" class="btn btn-success" target="_blank"><i class="fa fw-coindaddy pull-left" style="top:0px"></i> Check if this token is listed for sale on CoinDaddy</a></center>', true);
@@ -166,9 +166,9 @@ $(document).ready(function(){
                     }
                 } else {
                     // Error if asset is owned by another address
-                    if(o.owner!=FW.WALLET_ADDRESS){
+                    if(o.owner!=DW.WALLET_ADDRESS){
                         var found = false;
-                        FW.WALLET_ADDRESSES.forEach(function(item){
+                        DW.WALLET_ADDRESSES.forEach(function(item){
                             if(item.address==o.owner)
                                 found = true;
                         });
@@ -270,12 +270,12 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-create-token');
                     dialogMessage('<i class="fa fa-lg fa-plus-circle"></i> Token Creation Successful', '<center>Your issuance has been broadcast to the network and your token should be created shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                 }
             }
             // Callback to run if user confirms action
             var confirmCb = function(){
-                var network   = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                var network   = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                     amt_sat   = (vals.amount.indexOf('.')!=-1) ? numeral(vals.amount).multiply(100000000).value() : numeral(vals.amount).value(),
                     fee_sat   = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
                     divisible = (vals.divisible=='Yes') ? true : false;

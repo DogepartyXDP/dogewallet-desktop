@@ -21,15 +21,15 @@ $(document).ready(function(){
     xdp_info  = getAssetPrice('XDP',true);
 
     // Populate the token name / asset list
-    var balances = getAddressBalance(FW.WALLET_ADDRESS),
+    var balances = getAddressBalance(DW.WALLET_ADDRESS),
         html     = '',
         el       = $('#token-name-select');
     // Force "DOGE" to be the only option for burning
     if(type=='burn'){
-        html += '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/DOGE.png\' class=\'fw-icon-20 margin-right-5\'>DOGE">DOGE</option>';
+        html += '<option data-content="<img src=\'' + DW.XCHAIN_API + '/icon/DOGE.png\' class=\'fw-icon-20 margin-right-5\'>DOGE">DOGE</option>';
     } else if(type=='dispenser-buy'){
-        var o = FW.DIALOG_DATA;
-        html += '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/' + o.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + o.name +'">' + o.name + '</option>';
+        var o = DW.DIALOG_DATA;
+        html += '<option data-content="<img src=\'' + DW.XCHAIN_API + '/icon/' + o.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + o.name +'">' + o.name + '</option>';
     } else {
         if(balances && balances.data){
             balances.data.forEach(function(item){
@@ -37,7 +37,7 @@ $(document).ready(function(){
                 if(item.asset=='DOGE' && (type=='destroy'||type=='dispenser'))
                     return;
                 var asset = (item.asset_longname && item.asset_longname!='') ? item.asset_longname : item.asset;
-                data = '<option data-content="<img src=\'' + FW.XCHAIN_API + '/icon/' + item.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + asset + '">' + asset + '</option>';
+                data = '<option data-content="<img src=\'' + DW.XCHAIN_API + '/icon/' + item.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + asset + '">' + asset + '</option>';
                 // Put DOGE at top of the list
                 if(asset=='DOGE'){
                     html = data + html;
@@ -94,7 +94,7 @@ $(document).ready(function(){
             updateAvailableQuantity();
         // Callback function to handle saving current asset information
         var cb = function(o){
-            FW.ASSET_INFO = o;
+            DW.ASSET_INFO = o;
             doge_info = getAssetPrice('DOGE',true);
             xdp_info  = getAssetPrice('XDP',true);
             // Handle enabling/disabling the fiat field based on if we detect some estimated DOGE value

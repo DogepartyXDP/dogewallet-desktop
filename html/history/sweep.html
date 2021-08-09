@@ -56,16 +56,16 @@
 
 <!-- Code to load/update data -->
 <script type="text/javascript">
-    var testnet = (FW.WALLET_NETWORK==2) ? true : false,
-        tx      = FW.CURRENT_TRANSACTION.tx;
+    var testnet = (DW.WALLET_NETWORK==2) ? true : false,
+        tx      = DW.CURRENT_TRANSACTION.tx;
 
     $(document).ready(function(){
 
         // Update 'more info' link to point to transaction url
-        $('#history-info-more').attr('href', FW.XCHAIN_API + '/tx/' + tx);
+        $('#history-info-more').attr('href', DW.XCHAIN_API + '/tx/' + tx);
 
         // Request transaction information from xchain.io
-        $.getJSON(FW.XCHAIN_API + '/api/tx/' + tx, function( o ){
+        $.getJSON(DW.XCHAIN_API + '/api/tx/' + tx, function( o ){
             if(!o.error){
                 $('#source').html(o.source);
                 $('#destination').html(o.destination);

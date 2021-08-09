@@ -29,22 +29,22 @@ $(document).ready(function(){
     $('#amount-field').load('html/fields/amount.html');
     $('#tx-fee-field').load('html/fields/tx-fee.html');
 
-    // Stash current price info on BTC and XCP
-    var btc_info   = getAssetPrice('BTC',true),
-        xcp_info   = getAssetPrice('XCP',true);
+    // Stash current price info on DOGE and XDP
+    var doge_info = getAssetPrice('DOGE',true),
+        xdp_info  = getAssetPrice('XDP',true);
 
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
         if(data.token){
             $('#token-name').val(data.token);
             $('#token-name').change();
         }
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Initialize any tooltips
         $('[data-toggle="tooltip"]').tooltip({ 
@@ -94,7 +94,7 @@ $(document).ready(function(){
             errors.push('You must enter an amount which is greater than 0!');
             $('#amount').closest('.form-group').addClass('has-error has-danger');
         }
-        console.log('FW.ASSET_INFO=',FW.ASSET_INFO);
+        console.log('DW.ASSET_INFO=',DW.ASSET_INFO);
         // Display any error message
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
@@ -104,20 +104,20 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-issue-supply');
                     dialogMessage('<i class="fa fa-lg fa-bank"></i> Issue Supply Successful', '<center>Your issuance has been broadcast to the network and your additional supply should be available shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                 }
             }
             // Callback to run if user confirms action
             var confirmCb = function(){
-                var network = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                     amt_sat = (vals.amount.indexOf('.')!=-1) ? numeral(vals.amount).multiply(100000000).value() : numeral(vals.amount).value(),
                     fee_sat = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
-                    info    = FW.ASSET_INFO;
+                    info    = DW.ASSET_INFO;
                 cpIssuance(network, vals.source, vals.name, amt_sat, info.divisible, info.description, null, fee_sat, doneCb);
             }
             // Confirm the action with the user
             var title = '<i class="fa fa-lg fa-fw fa-bank"></i> Confirm Supply Issuance?',
-                fmt   = (FW.ASSET_INFO.divisible) ? '0,0.00000000' : '0,0',
+                fmt   = (DW.ASSET_INFO.divisible) ? '0,0.00000000' : '0,0',
                 msg   = 'Issue  <b>' + numeral(vals.amount).format(fmt) + ' ' + vals.name + '</b>?';
             dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
         }

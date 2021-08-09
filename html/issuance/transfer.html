@@ -32,15 +32,15 @@ $(document).ready(function(){
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
         if(data.token){
             $('#token-name').val(data.token);
             $('#token-name').change();
         }
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Initialize any tooltips
         $('[data-toggle="tooltip"]').tooltip({ 
@@ -99,14 +99,14 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-transfer-ownership');
                     dialogMessage('<i class="fa fa-lg fa-exchange"></i> Transfer Successful', '<center>Your transfer has been broadcast to the network and the token owner should be updated shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                 }
             }
             // Callback to run if user confirms action
             var confirmCb = function(){
-                var network = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                     fee_sat = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
-                    info    = FW.ASSET_INFO;
+                    info    = DW.ASSET_INFO;
                 cpIssuance(network, vals.source, vals.name, 0, info.divisible, info.description, vals.destination, fee_sat, doneCb);
             }
             // Confirm the action with the user

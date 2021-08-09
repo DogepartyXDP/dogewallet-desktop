@@ -52,15 +52,15 @@
 
 <!-- Code to load/update data -->
 <script type="text/javascript">
-    var tx = FW.CURRENT_TRANSACTION.tx;
+    var tx = DW.CURRENT_TRANSACTION.tx;
 
     $(document).ready(function(){
 
         // Update 'more info' link to point to transaction url
-        $('#history-info-more').attr('href',FW.XCHAIN_API + '/tx/' + tx);
+        $('#history-info-more').attr('href',DW.XCHAIN_API + '/tx/' + tx);
 
         // Request transaction information
-        $.getJSON(FW.XCHAIN_API + '/api/tx/' + tx, function( o ){
+        $.getJSON(DW.XCHAIN_API + '/api/tx/' + tx, function( o ){
             if(!o.error){
                 $('#broadcast-text').text(o.text);
                 $('#broadcast-value').text(o.value);

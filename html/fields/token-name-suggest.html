@@ -49,16 +49,8 @@ $(document).ready(function(){
 
     // Define a list of popular assets
     var popular = [
-        'BTC',
-        'BITCRYSTALS',
-        'COVALC',
-        'DATABITS',
-        'FLDC',
-        'MAFIACASH',
-        'BITCORN',
-        'PEPECASH',
-        'SCOTCOIN',
-        'XCP',
+        'DOGE',
+        'XDP'
     ];
 
     // Handle offering asset name suggestions
@@ -97,7 +89,7 @@ $(document).ready(function(){
             if(name!='' && name!=null && name!=last_asset){
                 last_asset = name;
                 // Lookup if this asset is already registered to another address... send to coindaddy to make purchase offer
-                $.getJSON( FW.XCHAIN_API + '/api/asset/' + name, function(o){
+                $.getJSON( DW.XCHAIN_API + '/api/asset/' + name, function(o){
                     var type = getFormType();
                     // An error indicates asset is not registered
                     if(o.error){
@@ -115,14 +107,14 @@ $(document).ready(function(){
                             action = 'add a watchlist for ';
                         dialogMessage('Notice', '<center>Before you can ' + action + ' <b><i>' + name + '</i></b>, you must first register the name', true);
                     } else {
-                        // If this is a dividend payment, then bail out and DO NOT update FW.ASSET_INFO as it overwrites the dividend asset data
+                        // If this is a dividend payment, then bail out and DO NOT update DW.ASSET_INFO as it overwrites the dividend asset data
                         if(type=='dividend'||type=='add-market'||type=='dispenser-watchlist-add')
                             return;
-                        FW.ASSET_INFO = o;
+                        DW.ASSET_INFO = o;
                         // Error if asset is owned by another address
-                        if(o.owner!=FW.WALLET_ADDRESS){
+                        if(o.owner!=DW.WALLET_ADDRESS){
                             var found = false;
-                            FW.WALLET_ADDRESSES.forEach(function(item){
+                            DW.WALLET_ADDRESSES.forEach(function(item){
                                 if(item.address==o.owner)
                                     found = true;
                             });
@@ -150,7 +142,7 @@ $(document).ready(function(){
                 update = false;
         });
         if(update){
-            $.getJSON(FW.XCHAIN_API + '/api/suggestions/' + query, function(o){
+            $.getJSON(DW.XCHAIN_API + '/api/suggestions/' + query, function(o){
                 if(o.data)
                     setupTokenNameField(o.data);
             });

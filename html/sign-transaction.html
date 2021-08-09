@@ -40,14 +40,14 @@ $(document).ready(function(){
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
         console.log('data=',data);
         if(data.tx)
             $('#sign-transaction').val(data.tx);
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Initialize any tooltips
         $('[data-toggle="tooltip"]').tooltip({ 
@@ -83,12 +83,12 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-sign-transaction');
                     dialogMessage('<i class="fa fa-lg fa-check"></i> Broadcast Successful', '<center>Your transaction has been broadcast to the network and should be confirmed shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                 }
             }
             // Callback to run if user confirms action
             var confirmCb = function(){
-                var network   = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
+                var network   = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
                 updateTransactionStatus('pending', 'Broadcasting transaction...');
                 // Broadcast the transaction
                 broadcastTransaction(network, signedTx, function(txid){
@@ -132,7 +132,7 @@ $(document).ready(function(){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
             // Handle signing the message and populating the 'Signed' box
-            var network = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
+            var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
             updateTransactionStatus('pending', 'Signing transaction...');
             signTransaction(network, vals.source, vals.source, vals.transaction, function(tx){
                 var val = '';

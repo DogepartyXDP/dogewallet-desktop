@@ -29,12 +29,12 @@ $(document).ready(function(){
         $('#memo-type-wrapper').css('width', '160px');
     }
 
-    // Handle Disabling the memo for BTC transactions
+    // Handle Disabling the memo for DOGE transactions
     $('#token-name-select').change(function(e){
         var val = $(this).val(),
             el  = $('#memo');
-        // If this is BTC, hardcode the values and skip getting asset info
-        if(val=='BTC'){
+        // If this is DOGE, hardcode the values and skip getting asset info
+        if(val=='DOGE'){
             // Disable the memo
             el.attr('disabled', true);
             el.val('');

@@ -17,8 +17,8 @@ $(document).ready(function(){
     $('#token-description-coindaddy').click(function(e){
         var name = $('#token-name').val(),
             type = $('#token-type').val();
-        if(FW.ASSET_INFO && type=='')
-            name = FW.ASSET_INFO.asset;
+        if(DW.ASSET_INFO && type=='')
+            name = DW.ASSET_INFO.asset;
         desc = 'xcp.coindaddy.io/' + name + '.json';
         $('#token-description').val(desc);
     }); 

@@ -39,29 +39,29 @@
     <div class="form-group" id="tx-fee-field">
         <!-- Transaction Fee Field -->
     </div>
-    <!-- Auto-Sign BTCPay Information -->
-    <div class="form-group" id="btcpay" style="display: none">
+    <!-- Auto-Sign DOGEPay Information -->
+    <div class="form-group" id="dogepay" style="display: none">
         <label class="col-sm-3 control-label text-left">
-            Auto-BTCPay 
-            <a href="#" data-toggle="tooltip" title='This indicates if you would like to automatically sign and broadcast BTCPay transactions when matches for this order are detected' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5"></i></a>
+            Auto-DOGEPay 
+            <a href="#" data-toggle="tooltip" title='This indicates if you would like to automatically sign and broadcast DOGEPay transactions when matches for this order are detected' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5"></i></a>
         </label>
         <div class="col-sm-9">
             <select id="autopay" class="selectpicker" name="autopay" data-width="100%">
-                <option value="Y">Yes - Automatically sign &amp; broadcast BTCpay transactions</option>
-                <option value="N">No - Manually sign &amp; broadcast BTCpay transactions</option>
+                <option value="Y">Yes - Automatically sign &amp; broadcast DOGEpay transactions</option>
+                <option value="N">No - Manually sign &amp; broadcast DOGEpay transactions</option>
             </select>
         </div>
-        <div class="col-xs-12" class="dialog-autobtcpay">
-            <div class="checkbox dialog-autobtcpay-confirm" style="display: none" id="dialog-autobtcpay-yes">
+        <div class="col-xs-12" class="dialog-autodogepay">
+            <div class="checkbox dialog-autodogepay-confirm" style="display: none" id="dialog-autodogepay-yes">
                 <label>
                     <input type="checkbox" name="autopay-confirm" value="Y"> 
-                    I understand that I need to  <u><i><b>keep FreeWallet open</b></i></u> in order for Auto-BTCPay to work.
+                    I understand that I need to  <u><i><b>keep DogeWallet open</b></i></u> for Auto-DOGEPay to work.
                 </label>
             </div>
-            <div class="checkbox dialog-autobtcpay-confirm" style="display: none" id="dialog-autobtcpay-no">
+            <div class="checkbox dialog-autodogepay-confirm" style="display: none" id="dialog-autodogepay-no">
                 <label>
                     <input type="checkbox" name="autopay-confirm" value="Y"> 
-                    I understand that I need to <u><i><b>pay within 20 blocks of a match</b></i></u> or the match will fail.
+                    I understand that I need to <u><i><b>pay within 120 blocks of a match</b></i></u> or the match will fail.
                 </label>
             </div>
         </div>
@@ -78,8 +78,8 @@
 // Handle updating the confirmation text based off selected value
 var updateAutopayConfirm = function(){
     var val = $('#autopay').val(),
-        yes = $('#dialog-autobtcpay-yes'),
-        no  = $('#dialog-autobtcpay-no');
+        yes = $('#dialog-autodogepay-yes'),
+        no  = $('#dialog-autodogepay-no');
     if(val=='Y'){
         yes.show();
         no.hide();
@@ -102,34 +102,34 @@ $(document).ready(function(){
     // Delay initializing some fields to give things a chance to load
     setTimeout(function(){
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
         if(data){
             // Set hidden form values to exactly what was passed
             $('#get-asset').val(data.get_asset);
             $('#give-asset').val(data.give_asset);
             $('#give-amount').val(data.give_amount);
             $('#get-amount').val(data.get_amount);
-            $('#source').val(FW.WALLET_ADDRESS);
+            $('#source').val(DW.WALLET_ADDRESS);
             // Handle displaying the order information in a way that makes sense
             var assetA  = (data.type=='buy') ? data.get_asset : data.give_asset,
                 assetB  = (data.type=='buy') ? data.give_asset : data.get_asset,
-                formatA = (FW.ASSET_DIVISIBLE[assetA]) ? '0,0.00000000' : '0,0',
-                formatB = (FW.ASSET_DIVISIBLE[assetB]) ? '0,0.00000000' : '0,0',
+                formatA = (DW.ASSET_DIVISIBLE[assetA]) ? '0,0.00000000' : '0,0',
+                formatB = (DW.ASSET_DIVISIBLE[assetB]) ? '0,0.00000000' : '0,0',
                 amountA = (data.type=='buy') ? numeral(data.get_amount).format(formatA) : numeral(data.give_amount).format(formatA),
                 amountB = (data.type=='buy') ? numeral(data.give_amount).format(formatB) : numeral(data.get_amount).format(formatB);
             $('#infoA').html(amountA + '<br>' + assetA);
             $('#infoB').html(amountB + '<br>' + assetB);
-            $('#assetA-icon').attr('src', FW.XCHAIN_API + '/icon/' + assetA + '.png');
-            $('#assetB-icon').attr('src', FW.XCHAIN_API + '/icon/' + assetB + '.png');
+            $('#assetA-icon').attr('src', DW.XCHAIN_API + '/icon/' + assetA + '.png');
+            $('#assetB-icon').attr('src', DW.XCHAIN_API + '/icon/' + assetB + '.png');
             $('.order-type').html(data.type.charAt(0).toUpperCase() + data.type.slice(1));
-            // Display additional options for auto-signing the BTCpay transaction
-            if(data.give_asset=='BTC')
-                $('#btcpay').show();
+            // Display additional options for auto-signing the DOGEpay transaction
+            if(data.give_asset=='DOGE')
+                $('#dogepay').show();
         }
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Initialize any tooltips
         $('[data-toggle="tooltip"]').tooltip({ 
@@ -142,7 +142,7 @@ $(document).ready(function(){
     // Display the correct confirmation option
     updateAutopayConfirm();
 
-    // Update confirmation option if user changes auto-btcpay option
+    // Update confirmation option if user changes auto-dogepay option
     $('#autopay').change(function(){
         updateAutopayConfirm();
     });
@@ -174,20 +174,20 @@ $(document).ready(function(){
         }
         // Verify we have valid expiration number
         var expire = numeral(vals['expires']).value();
-        if(expire<=0||expire>8064){
-            errors.push('You must enter a expiration number between 1 and 8064!');
+        if(expire<=0||expire>129600){
+            errors.push('You must enter a expiration number between 1 and 129,600!');
             $('#expires').closest('.form-group').addClass('has-error has-danger');
         }
-        // Handle BTCpay valdidation
-        if(vals.give_asset=='BTC' && vals['autopay-confirm']!='Y'){
-            errors.push('You must confirm that you understand the BTCPay requirements!');
-            $('.dialog-autobtcpay-confirm').effect( "shake", { times: 3, direction: 'up' }, 1000);
+        // Handle DOGEpay valdidation
+        if(vals.give_asset=='DOGE' && vals['autopay-confirm']!='Y'){
+            errors.push('You must confirm that you understand the DOGEPay requirements!');
+            $('.dialog-autodogepay-confirm').effect( "shake", { times: 3, direction: 'up' }, 1000);
         }
         // Display any error message
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
-            var network  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+            var network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
                 fee_sat  = getSatoshis(vals['fee-amount']),
                 get_sat  = getSatoshis(vals.get_amount),
                 give_sat = getSatoshis(vals.give_amount);
@@ -198,22 +198,22 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-create-order');
                     dialogMessage('<i class="fa fa-lg fa-check"></i> Order Creation Successful', '<center>Your order has been broadcast to the network and should be placed shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
-                    // Add transaction to BTCpay monitoring list
-                    if(vals.give_asset=='BTC'){
-                        if(!FW.BTCPAY_ORDERS[network])
-                            FW.BTCPAY_ORDERS[network] = {};
-                        if(!FW.BTCPAY_ORDERS[network][vals.source])
-                            FW.BTCPAY_ORDERS[network][vals.source] = {};
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                    // Add transaction to DOGEpay monitoring list
+                    if(vals.give_asset=='DOGE'){
+                        if(!DW.DOGEPAY_ORDERS[network])
+                            DW.DOGEPAY_ORDERS[network] = {};
+                        if(!DW.DOGEPAY_ORDERS[network][vals.source])
+                            DW.DOGEPAY_ORDERS[network][vals.source] = {};
                         // Save transaction hash and autopay preference 
-                        FW.BTCPAY_ORDERS[network][vals.source][tx] = autopay;
+                        DW.DOGEPAY_ORDERS[network][vals.source][tx] = autopay;
                         // Save data to disk
-                        ls.setItem('btcpayOrders',JSON.stringify(FW.BTCPAY_ORDERS));
-                        // Save wallet to btcpayWallet (if user locks wallet, we can still sign transactions)
+                        ls.setItem('dogepayOrders',JSON.stringify(DW.DOGEPAY_ORDERS));
+                        // Save wallet to dogepayWallet (if user locks wallet, we can still sign transactions)
                         var a = ss.getItem('wallet'),
-                            b = ss.getItem('btcpayWallet');
+                            b = ss.getItem('dogepayWallet');
                         if(b==null)
-                            ss.setItem('btcpayWallet',a);
+                            ss.setItem('dogepayWallet',a);
                     }
                 }
             }
