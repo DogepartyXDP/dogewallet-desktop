@@ -39,7 +39,7 @@ function doneCb(tx){
     if(tx){
         dialogClose('dialog-dispenser');
         dialogMessage('<i class="fa fa-lg fa-arrows-h"></i> Create Dispenser Successful', '<center>Your dispenser transaction has been sent to the network and should be included to a block shortly.' +
-                      '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                      '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
     }
 }
 
@@ -47,14 +47,14 @@ function doneCb(tx){
 function confirmCreateDispenser(vals){
     // Callback to run if user confirms action
     var confirmCb = function(){
-        var network  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+        var network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
             escrow_sat = (vals['escrow-amount'].indexOf('.')!=-1) ? numeral(vals['escrow-amount']).multiply(100000000).format('0') : numeral(vals['escrow-amount']).format('0'),
             give_sat   = (vals['escrow-amount'].indexOf('.')!=-1) ? numeral(vals['give-amount']).multiply(100000000).format('0') : numeral(vals['give-amount']).format('0'),
-            btc_sat    = parseInt(numeral(vals['doge-amount']).multiply(100000000).value()),
+            doge_sat   = parseInt(numeral(vals['doge-amount']).multiply(100000000).value()),
             fee_sat    = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
             asset      = vals.name, 
             status     = 0; // Hardcode to open for creating a dispenser... can close via dispensers interface
-        cpDispenser(network, vals.source, vals.destination, asset, escrow_sat, give_sat, btc_sat, status, fee_sat, doneCb);
+        cpDispenser(network, vals.source, vals.destination, asset, escrow_sat, give_sat, doge_sat, status, fee_sat, doneCb);
     }
     // Confirm the action with the user
     var title = '<i class="fa fa-lg fa-fw fa-arrows-h"></i> Confirm Create Dispenser?',
@@ -64,7 +64,7 @@ function confirmCreateDispenser(vals){
 }
 
 // Handle throwing a scary warning to discourage people from setting up multiple dispensers on the same address
-// This should hopefully prevent some users from losing funds because they do not understand that a single BTC payment can trigger multiple dispensers
+// This should hopefully prevent some users from losing funds because they do not understand that a single DOGE payment can trigger multiple dispensers
 function dialogWarnMultipleDispensers(vals){
     var message = '<div class="alert alert-danger" role="alert"><strong><center>There is already a dispenser setup at this address!<br><br>Setting up multiple dispensers on the same address is not suggested, and can result in dispensing tokens unexpectedly and loss of funds!</center></strong></div>';
     message += '<center>Are you sure you want to continue setting up this dispenser?'
@@ -104,8 +104,8 @@ $(document).ready(function(){
             placement: 'bottom'
         }); 
 
-        // Handle loading any data from FW.DIALOG_DATA
-        var data = FW.DIALOG_DATA;
+        // Handle loading any data from DW.DIALOG_DATA
+        var data = DW.DIALOG_DATA;
 
         if(data.token){
             $('#token-name-select').val(data.token);
@@ -113,7 +113,7 @@ $(document).ready(function(){
         }
 
         // Reset dialog data so we don't reuse data on form in the future
-        FW.DIALOG_DATA = {};
+        DW.DIALOG_DATA = {};
 
         // Detect any asset change and clear the escrow and give amounts
         $('#token-name-select').change(function(e){
@@ -164,10 +164,10 @@ $(document).ready(function(){
             $('#give-amount').closest('.form-group').addClass('has-error has-danger');
         }
 
-        // Verify we have valid BTC amount 
+        // Verify we have valid DOGE amount 
         if(numeral(vals['doge-amount']).value()==0){
             errors.push('You must enter an DOGE amount which is greater than 0!');
-            $('#btc-amount').closest('.form-group').addClass('has-error has-danger');
+            $('#doge-amount').closest('.form-group').addClass('has-error has-danger');
         }
 
         // Verify we have valid fee amount 
@@ -181,7 +181,7 @@ $(document).ready(function(){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
             // Check if user has any dispensers setup on this address already
-            $.getJSON(FW.XCHAIN_API + '/api/dispensers/' + vals.destination, function(o){
+            $.getJSON(DW.XCHAIN_API + '/api/dispensers/' + vals.destination, function(o){
                 var found = false
                 o.data.forEach(function(item){
                     if(item.status==0)
@@ -192,7 +192,7 @@ $(document).ready(function(){
                     dialogWarnMultipleDispensers(vals);
                 } else {
                     // So far so good, now lets check mempool for any pending dispenser transactions
-                    $.getJSON(FW.XCHAIN_API + '/api/mempool/' + vals.destination, function(o){
+                    $.getJSON(DW.XCHAIN_API + '/api/mempool/' + vals.destination, function(o){
                         var found = false
                         o.data.forEach(function(item){
                             if(item.tx_type=='Dispenser')

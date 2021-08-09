@@ -39,10 +39,10 @@
                     </table>
                 </div>
                 <div class="market-header">
-                    <div class="market-icon"><img src="images/icons/btc.png"></div>
+                    <div class="market-icon"><img src="images/icons/DOGE.png"></div>
                     <div class="market-name"></div>
                     <div class="market-pair">
-                        <img src="images/icons/btc.png" class="fw-icon-20"> <span></span> 
+                        <img src="images/icons/DOGE.png" class="fw-icon-20"> <span></span> 
                         <a href="#" class="fa fa-lg fa-exchange" data-toggle="tooltip" data-placement="bottom" title="Reverse" id="market-swap-button"></a>
                         <a href="#" class="fa fa-lg fa-refresh"  data-toggle="tooltip" data-placement="bottom" title="Refresh" id="market-refresh-button"></a>
                     </div>
@@ -281,7 +281,7 @@
                         <!-- Asset #1 Information (supply, price, reputation) -->
                         <div id="asset1-info">
                             <div class="panel-heading panel-heading-lg">
-                                <img src="images/icons/btc.png" class="asset-icon fw-icon-20"> <span class="asset1-name"></span> Information
+                                <img src="images/icons/DOGE.png" class="asset-icon fw-icon-20"> <span class="asset1-name"></span> Information
                                 <a href="#" class="btn btn-xs btn-success pull-right more-info" data-toggle="tooltip" data-placement="left" title="More Information" target="_blank"><i class="fa fa-lg auto-width fa-info-circle"></i></a>
                             </div>                    
                             <table class="table table-striped cell-border table-condensed no-bottom-margin" width="100%">
@@ -304,7 +304,7 @@
                         <!-- Asset #2 Information (supply, price, reputation) -->
                         <div id="asset2-info">
                             <div class="panel-heading panel-middle panel-heading-lg">
-                                <img src="images/icons/btc.png" class="asset-icon fw-icon-20"> <span class="asset2-name"></span> Information
+                                <img src="images/icons/DOGE.png" class="asset-icon fw-icon-20"> <span class="asset2-name"></span> Information
                                 <a href="#" class="btn btn-xs btn-success pull-right more-info" data-toggle="tooltip" data-placement="left" title="More Information" target="_blank"><i class="fa fa-lg auto-width fa-info-circle"></i></a>
                             </div>                    
                             <table class="table table-striped cell-border table-condensed no-bottom-margin" width="100%">
@@ -341,7 +341,7 @@
 
 <script>
 // Define the basic chart elements config common to all charts
-FW.CHART_CONFIG = {
+DW.CHART_CONFIG = {
     chart: {
         borderColor: '#DFD7CA',
         borderWidth: 1,
@@ -475,10 +475,10 @@ $(document).ready(function(){
 
 
     // Initialize some placeholders
-    FW.RAW_CHART_DATA  = [];
-    FW.CHART_DATA      = [];
-    FW.MARKET_NAME     = 'BTC/XCP';
-    FW.ASSET_DIVISIBLE = {};
+    DW.RAW_CHART_DATA  = [];
+    DW.CHART_DATA      = [];
+    DW.MARKET_NAME     = 'DOGE/XDP';
+    DW.ASSET_DIVISIBLE = {};
 
     // Load preferred market chart
     var chart = ls.getItem('marketChart') || 'candlestick';
@@ -497,27 +497,27 @@ $(document).ready(function(){
     $('#buy-fee-priority').selectpicker();
     $('#sell-fee-priority').selectpicker();
 
-    // Handle loading any data from FW.DIALOG_DATA
-    var data = FW.DIALOG_DATA;
+    // Handle loading any data from DW.DIALOG_DATA
+    var data = DW.DIALOG_DATA;
     if(data.market)
-        FW.MARKET_NAME = data.market;
+        DW.MARKET_NAME = data.market;
 
     // Reset dialog data so we don't reuse data in the future
-    FW.DIALOG_DATA = {};
+    DW.DIALOG_DATA = {};
 
      // Update market information 
-    updateMarket(FW.MARKET_NAME);
+    updateMarket(DW.MARKET_NAME);
 
     // Handle swapping the market when the user clicks the <-> swap button
     $('#market-swap-button').click($.debounce(100,function(e){
-        var x = String(FW.MARKET_NAME).split('/');
-        FW.MARKET_NAME = x[1] + '/' + x[0];
-        updateMarket(FW.MARKET_NAME);
+        var x = String(DW.MARKET_NAME).split('/');
+        DW.MARKET_NAME = x[1] + '/' + x[0];
+        updateMarket(DW.MARKET_NAME);
     }));
 
     // Handle Refreshing the market data
     $('#market-refresh-button').click($.debounce(100,function(e){
-        updateMarket(FW.MARKET_NAME, true);
+        updateMarket(DW.MARKET_NAME, true);
     }));
 
     // Set the active chart in the dropdown list
@@ -548,7 +548,7 @@ $(document).ready(function(){
     // Handle detecting order cancellations
     $('#open-orders').on('click', 'a.cancel-button', function(e){
         var tx = $(this).attr('data-tx');
-        FW.DIALOG_DATA = {
+        DW.DIALOG_DATA = {
             tx_hash: tx
         }
         dialogCancelOrder();
@@ -642,14 +642,14 @@ $(document).ready(function(){
             e.preventDefault(); // Prevent normal form submission
             console.log('caught submit id,vals=',id,vals);
             // Get object with form values
-            var vals   = array2Object($(this).serializeArray()),
-                assets = String(FW.MARKET_NAME).split('/'),
-                asset1 = assets[0],
-                asset2 = assets[1],
-                errors = [],
-                minbtc = 0.00001; // Minimum BTC order amount
-            console.log('FW.ASSET_DIVISIBLE=',FW.ASSET_DIVISIBLE);
-            console.log('FW.MARKET_NAME=',FW.MARKET_NAME);
+            var vals    = array2Object($(this).serializeArray()),
+                assets  = String(DW.MARKET_NAME).split('/'),
+                asset1  = assets[0],
+                asset2  = assets[1],
+                errors  = [],
+                mindoge = 1.00000; // Minimum DOGE order amount
+            console.log('DW.ASSET_DIVISIBLE=',DW.ASSET_DIVISIBLE);
+            console.log('DW.MARKET_NAME=',DW.MARKET_NAME);
             // Verify price/amount/total are greater than 0
             if(numeral(vals[id + '-price']).value()==0){
                 errors.push('You must enter a ' + id + ' price which is greater than 0!');
@@ -664,12 +664,12 @@ $(document).ready(function(){
                 $('#' + id + '-total').closest('.form-group').addClass('has-error has-danger');
             }
             // Verify that the amount is valid (divisible/integer)
-            if(!FW.ASSET_DIVISIBLE[asset1] && vals[id + '-amount'].split('.')[1]!='00000000'){
+            if(!DW.ASSET_DIVISIBLE[asset1] && vals[id + '-amount'].split('.')[1]!='00000000'){
                 errors.push('Your ' + id + ' amount must be an integer!');
                 $('#' + id + '-amount').closest('.form-group').addClass('has-error has-danger');
             }
             // Verify that the price and total are valid (divisible/integer)
-            if(!FW.ASSET_DIVISIBLE[asset2] && vals[id + '-total'].split('.')[1]!='00000000'){
+            if(!DW.ASSET_DIVISIBLE[asset2] && vals[id + '-total'].split('.')[1]!='00000000'){
                 errors.push('Your ' + id + ' total must be an integer!');
                 $('#' + id + '-total').closest('.form-group').addClass('has-error has-danger');
             }
@@ -683,14 +683,14 @@ $(document).ready(function(){
                 errors.push('Your ' + id + ' amount is more than your available balance!');
                 $('#' + id + '-amount').closest('.form-group').addClass('has-error has-danger');
             }
-            // Verify order total over BTC order minimum
-            if(asset2=='BTC' && numeral(vals[id + '-total']).value() < minbtc ){
-                errors.push('Order total is below order minimum of ' + numeral(minbtc).format('0.00000000') + ' BTC')                
+            // Verify order total over DOGE order minimum
+            if(asset2=='DOGE' && numeral(vals[id + '-total']).value() < mindoge ){
+                errors.push('Order total is below order minimum of ' + numeral(mindoge).format('0.00000000') + ' DOGE')                
                 $('#' + id + '-total').closest('.form-group').addClass('has-error has-danger');
             }
-            // Verify order amount over BTC order minimum
-            if(asset1=='BTC' && numeral(vals[id + '-amount']).value() < minbtc ){
-                errors.push('BTC amount is below order minimum of ' + numeral(minbtc).format('0.00000000') + ' BTC')                
+            // Verify order amount over DOGE order minimum
+            if(asset1=='DOGE' && numeral(vals[id + '-amount']).value() < mindoge ){
+                errors.push('DOGE amount is below order minimum of ' + numeral(mindoge).format('0.00000000') + ' DOGE')                
                 $('#' + id + '-amount').closest('.form-group').addClass('has-error has-danger');
             }
             // Display any error message
@@ -701,12 +701,12 @@ $(document).ready(function(){
                     give_asset  = (id=='buy') ? asset2 : asset1,
                     get_amount  = (id=='buy') ? vals['buy-amount'] : vals['sell-total'],
                     give_amount = (id=='buy') ? vals['buy-total'] : vals['sell-amount'],
-                    get_format  = (FW.ASSET_DIVISIBLE[get_asset]) ? '0.00000000' : '0',
-                    give_format = (FW.ASSET_DIVISIBLE[give_asset]) ? '0.00000000' : '0';
+                    get_format  = (DW.ASSET_DIVISIBLE[get_asset]) ? '0.00000000' : '0',
+                    give_format = (DW.ASSET_DIVISIBLE[give_asset]) ? '0.00000000' : '0';
 
                 // Save data so it is easily available to the dialog box
-                FW.DIALOG_DATA = {
-                    market: FW.MARKET_NAME,
+                DW.DIALOG_DATA = {
+                    market: DW.MARKET_NAME,
                     type: id,
                     get_asset:   get_asset,
                     give_asset:  give_asset,

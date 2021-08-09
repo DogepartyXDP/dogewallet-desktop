@@ -48,7 +48,7 @@ $(document).ready(function(){
     },100);
 
     // Clear the dialog data
-    // FW.DIALOG_DATA = {};
+    // DW.DIALOG_DATA = {};
 
     // Submit form if user clicks 'Submit' button
     $('#btn-submit').click($.debounce(100,function(e){
@@ -79,7 +79,7 @@ $(document).ready(function(){
 
         // Throw error if amount is below dust amount
         if(numeral(vals['doge-amount']).multiply(100000000).value()<=5430){
-            errors.push('DOGE Amount must be greater than dust (0.00005430 BTC)!');
+            errors.push('DOGE Amount must be greater than dust (0.00005430 DOGE)!');
             $('#doge-amount').closest('.form-group').addClass('has-error has-danger');
         }
 
@@ -93,20 +93,20 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-dispenser-buy');
                     dialogMessage('<i class="fa fa-lg fa-truck"></i> Dispenser Buy Successful', '<center>Your buy transaction has been sent to the network and should be included to a block shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                 }
             }
             // Callback to run if user confirms action
             var confirmCb = function(){
-                var network = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-                    source  = FW.WALLET_ADDRESS,
+                var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                    source  = DW.WALLET_ADDRESS,
                     amt_sat = parseInt(numeral(vals['doge-amount']).multiply(100000000).value()),
                     fee_sat = parseInt(numeral(vals['fee-amount']).multiply(100000000).value());
                 cpSend(network, source, data.destination, null, null, 'DOGE', amt_sat, fee_sat, doneCb);
             }
             // Confirm the action with the user
-            var data    = FW.DIALOG_DATA;
-            var title = '<img src="' + FW.XCHAIN_API + '/icon/' + data.asset + '.png" class="fw-icon-20 margin-right-5"> Confirm Buy ' + data.name + '?';
+            var data    = DW.DIALOG_DATA;
+            var title = '<img src="' + DW.XCHAIN_API + '/icon/' + data.asset + '.png" class="fw-icon-20 margin-right-5"> Confirm Buy ' + data.name + '?';
             var msg  = 'Buy <b>' + vals.amount + ' ' + data.name + '</b>';
                 msg += ' <br/>for <b>' + vals['doge-amount'] + ' DOGE</b>';
             dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);

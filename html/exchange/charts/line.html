@@ -24,10 +24,10 @@ function updateMarketChart( market ){
     var assets = String(market).split('/'),
         asset1 = assets[0],
         asset2 = assets[1];
-        data   = FW.MARKET_DATA[market].chart.trades;
+        data   = DW.MARKET_DATA[market].chart.trades;
     // console.log('updateMarketChart market,data=',market,data);
     // Create chart config by applying any customizations to the default config
-    var cfg  = $.extend( true, {}, FW.CHART_CONFIG, {
+    var cfg  = $.extend( true, {}, DW.CHART_CONFIG, {
         yAxis: [{
             labels: {
                 align: 'right',

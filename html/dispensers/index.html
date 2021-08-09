@@ -55,7 +55,7 @@
                               <th>Escrowed</th>
                               <th>Give Amount</th>
                               <th>Give Remaining</th>
-                              <th>BTC Price</th>
+                              <th>DOGE Price</th>
                               <th>Status</th>
                               <th></th>
                           </tr>
@@ -77,7 +77,7 @@
 
 
 // Define datatables config used on this page
-FW.DISPENSERS_DATATABLE_CONFIG = {
+DW.DISPENSERS_DATATABLE_CONFIG = {
     dom: '<"datatable-options text-center"<"pull-left"><"pull-right"i>p>t',
     destroy: true, // automatically destroy and re-create this datatable if it has already been initialized
     deferRender: true,
@@ -135,7 +135,7 @@ FW.DISPENSERS_DATATABLE_CONFIG = {
         // Display Asset or address name and make it clickable
         if(id=='my-dispensers-table'){
             var [name, asset] = data[0].split('|');
-            html = '<img src="' + FW.XCHAIN_API + '/icon/' + asset + '.png" class="fw-icon-20 pull-left">&nbsp;';
+            html = '<img src="' + DW.XCHAIN_API + '/icon/' + asset + '.png" class="fw-icon-20 pull-left">&nbsp;';
         }
         html += '<a href="#" class="dispenser-link">' + name + '</a>';
         $('td', row).eq(0).html(html);
@@ -153,7 +153,7 @@ FW.DISPENSERS_DATATABLE_CONFIG = {
                 html = '<div class="pull-right btn-xs btn-danger btn-close" data-toggle="tooltip" data-placement="left" title="Close Dispenser" data-tx="' + data[7] + '"><i class="fa fa-ban"></i>&nbsp;Close</div>';
         } else {
             if(status=='Open')
-                html = '<div class="pull-right btn-xs btn-success btn-buy" data-toggle="tooltip" data-placement="left" title="Buy Now" data-tx="' + data[7] + '"><i class="fa fa-btc"></i>&nbsp;Buy&nbsp;Now</div>';
+                html = '<div class="pull-right btn-xs btn-success btn-buy" data-toggle="tooltip" data-placement="left" title="Buy Now" data-tx="' + data[7] + '"><i class="fa fa-doge"></i>&nbsp;Buy&nbsp;Now</div>';
         }
         $('td', row).eq(6).html(html);
     }
@@ -162,26 +162,26 @@ FW.DISPENSERS_DATATABLE_CONFIG = {
 $(document).ready(function(){
 
     // Populate base market tables/tabs
-    FW.BASE_DISPENSERS.forEach(function(asset){ addDispenserWatchlist(asset); });
+    DW.BASE_DISPENSERS.forEach(function(asset){ addDispenserWatchlist(asset); });
 
-    // // Handle loading any data from FW.DIALOG_DATA
-    var data = FW.DIALOG_DATA;
+    // // Handle loading any data from DW.DIALOG_DATA
+    var data = DW.DIALOG_DATA;
     if(data.token){
         var asset = data.token;
-        if(FW.BASE_DISPENSERS.indexOf(asset)==-1){
+        if(DW.BASE_DISPENSERS.indexOf(asset)==-1){
             // Add the market to the view, set the tab as active, and update the markets data/view
             addDispenserWatchlist(asset);
-            FW.BASE_DISPENSERS.push(asset);
-            ls.setItem('walletDispensers', JSON.stringify(FW.BASE_DISPENSERS));
+            DW.BASE_DISPENSERS.push(asset);
+            ls.setItem('walletDispensers', JSON.stringify(DW.BASE_DISPENSERS));
         }
         $('#dispensers-tabs a[href="#' + asset + '"]').tab('show');
     }
 
     // Reset dialog data so we don't reuse data on form in the future
-    FW.DIALOG_DATA = {};
+    DW.DIALOG_DATA = {};
 
     // Initialize the datatables
-    $('.datatable').DataTable(FW.DISPENSERS_DATATABLE_CONFIG);
+    $('.datatable').DataTable(DW.DISPENSERS_DATATABLE_CONFIG);
 
     // Handle updating the dispeners list and displaying them
     updateDispensersLists();
@@ -190,14 +190,14 @@ $(document).ready(function(){
     autoCollapseWatchlistTabs();
 
     // Initialize the 'View Options'
-    if(FW.DISPENSER_OPTIONS.indexOf(1)!=-1) $(".checkbox [name='options-closed']").prop('checked', true);
+    if(DW.DISPENSER_OPTIONS.indexOf(1)!=-1) $(".checkbox [name='options-closed']").prop('checked', true);
 
     // // Handle updating view when user changes the viewing options
     $('.dropdown-checkboxes .checkbox input').change($.debounce(100,function(e){ 
         var arr = [];
         if($(".checkbox [name='options-closed']").is(':checked')) arr.push(1);
-        FW.DISPENSER_OPTIONS = arr;
-        ls.setItem('walletDispenserOptions',JSON.stringify(FW.DISPENSER_OPTIONS));
+        DW.DISPENSER_OPTIONS = arr;
+        ls.setItem('walletDispenserOptions',JSON.stringify(DW.DISPENSER_OPTIONS));
         updateDispensersLists();
     }));
 
@@ -219,7 +219,7 @@ $(document).ready(function(){
     // When user clicks dispenser name, launch dispenser in external window
     $('#dispensers-lists').on('click', 'a.dispenser-link', $.debounce(100,function(e){ 
         var data = String($(e.target).closest('tr').attr('data')).split(','),
-            url  = FW.XCHAIN_API + '/tx/' + data[6];
+            url  = DW.XCHAIN_API + '/tx/' + data[6];
         if(typeof nw !== 'undefined'){
             nw.Shell.openExternal(url);
         } else {
@@ -231,7 +231,7 @@ $(document).ready(function(){
     $('#dispensers-lists').on('click', '.btn-close', $.debounce(100,function(e){ 
         var data = String($(e.target).closest('tr').attr('data')).split(','),
             [name, asset] = String(data[0]).split('|');
-        FW.DIALOG_DATA = {
+        DW.DIALOG_DATA = {
             name: name,
             asset: asset
         };
@@ -244,7 +244,7 @@ $(document).ready(function(){
     $('#dispensers-lists').on('click', '.btn-buy', $.debounce(100,function(e){ 
         var data = String($(e.target).closest('tr').attr('data')).split(','),
             [name, asset] = String(data[7]).split('|');
-        FW.DIALOG_DATA = {
+        DW.DIALOG_DATA = {
             name: name,
             asset: asset,
             give_quantity: data[2],

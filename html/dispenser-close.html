@@ -20,8 +20,8 @@
 $(document).ready(function(){
 
     // Update Dialog box with asset name
-    $('#close-dispenser-form .asset-name').text(FW.DIALOG_DATA.name);
-    $('#close-dispenser-form [name="asset"]').val(FW.DIALOG_DATA.asset);
+    $('#close-dispenser-form .asset-name').text(DW.DIALOG_DATA.name);
+    $('#close-dispenser-form [name="asset"]').val(DW.DIALOG_DATA.asset);
 
     // Load any field content
     $('#tx-fee-field').load('html/fields/tx-fee.html');
@@ -46,7 +46,7 @@ $(document).ready(function(){
     },100);
 
     // Clear the dialog data
-    FW.DIALOG_DATA = {};
+    DW.DIALOG_DATA = {};
 
     // Submit form if user clicks 'Submit' button
     $('#btn-submit').click($.debounce(100,function(e){
@@ -84,11 +84,11 @@ $(document).ready(function(){
                 if(tx){
                     dialogClose('dialog-close-dispenser');
                     dialogMessage('<i class="fa fa-lg fa-ban"></i> Close Dispenser Successful', '<center>Your dispenser transaction has been sent to the network and should be included to a block shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + FW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                 }
             }
-            var network  = (FW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-                source   = FW.WALLET_ADDRESS,
+            var network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                source   = DW.WALLET_ADDRESS,
                 status   = 10, // 10 = Close Dispenser
                 fee_sat  = parseInt(numeral(vals['fee-amount']).multiply(100000000).value());
             cpDispenser(network, source, source, vals.asset, 0, 0, 0, status, fee_sat, doneCb);

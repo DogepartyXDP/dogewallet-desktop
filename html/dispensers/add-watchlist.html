@@ -56,7 +56,7 @@ $(document).ready(function(){
         } else {
             var asset = vals.name,
                 found = false;
-            FW.BASE_DISPENSERS.forEach(function(item){
+            DW.BASE_DISPENSERS.forEach(function(item){
                 if(item==asset)
                     found = true;
             });
@@ -75,8 +75,8 @@ $(document).ready(function(){
                 autoCollapseWatchlistTabs();
 
                 // Add the market to the base markets array and save to disk
-                FW.BASE_DISPENSERS.push(asset);
-                ls.setItem('walletDispensers', JSON.stringify(FW.BASE_DISPENSERS));
+                DW.BASE_DISPENSERS.push(asset);
+                ls.setItem('walletDispensers', JSON.stringify(DW.BASE_DISPENSERS));
 
                 // Update the market data and view
                 updateDispensersLists();

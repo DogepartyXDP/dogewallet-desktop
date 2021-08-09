@@ -19,7 +19,7 @@
 // Function to calculate and set fiat value based on asset amount
 function updateGiveValue(amt){
     if(! $('#give-amount-value').prop('disabled')){
-        var val = (FW.ASSET_INFO.estimated_value.doge *  numeral(amt).value()) * doge_info.price_usd;
+        var val = (DW.ASSET_INFO.estimated_value.doge *  numeral(amt).value()) * doge_info.price_usd;
         if(!isFinite(val))
             val = 0;
         $('#give-amount-value').val(numeral(val).format('0,0.00'));
@@ -28,7 +28,7 @@ function updateGiveValue(amt){
 
 // Function to calculate and display asset amount based on fiat value
 function updateGiveAmount(val){
-    var amt = ((numeral(val).value() / doge_info.price_usd) / FW.ASSET_INFO.estimated_value.doge),
+    var amt = ((numeral(val).value() / doge_info.price_usd) / DW.ASSET_INFO.estimated_value.doge),
         fmt = (String($('#available').val()).indexOf('.')!=-1) ? '0,0.00000000' : '0,0';
     if(!isFinite(amt))
         amt = 0;
@@ -46,7 +46,7 @@ $(document).ready(function(){
     $('#give-amount').change(function(e){
         var amt = String($(this).val()).replace(/[^0-9.]/g,''),
             val = $('#escrow-amount').val(),
-            fmt = (FW.ASSET_INFO.divisible) ? '0,0.00000000' : '0,0';
+            fmt = (DW.ASSET_INFO.divisible) ? '0,0.00000000' : '0,0';
         if(val)
             fmt = (val.indexOf('.')!=-1) ? '0,0.00000000' : '0,0';
         // Max the give amount at the escrow amount

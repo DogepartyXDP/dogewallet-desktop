@@ -56,7 +56,7 @@ $(document).ready(function(){
         } else {
             var market = vals.name,
                 found  = false;
-            FW.BASE_MARKETS.forEach(function(item){
+            DW.BASE_MARKETS.forEach(function(item){
                 if(item==market)
                     found = true;
             });
@@ -76,8 +76,8 @@ $(document).ready(function(){
                 updateMarkets(market, 1, true, function(o){ updateMarketsView(market); });
 
                 // Add the market to the base markets array and save to disk
-                FW.BASE_MARKETS.push(market);
-                ls.setItem('walletMarkets', JSON.stringify(FW.BASE_MARKETS));
+                DW.BASE_MARKETS.push(market);
+                ls.setItem('walletMarkets', JSON.stringify(DW.BASE_MARKETS));
             }
 
             // Close the dialog box

@@ -21,7 +21,7 @@ hr.spacer {
 </style>
 
 <div class="text-right">
-    <!-- <div id="btn-buy" class="btn btn-success pull-left"><i class="fa fa-lg fa-fw fa-btc"></i> Buy FULLACCESS</div> -->
+    <!-- <div id="btn-buy" class="btn btn-success pull-left"><i class="fa fa-lg fa-fw fa-doge"></i> Buy FULLACCESS</div> -->
     <div id="btn-donate" class="btn btn-info"><i class="fa fa-lg fa-fw fa-bitcoin"></i> Donate</div>
 </div>
 
@@ -49,9 +49,9 @@ $(document).ready(function(){
 
     // When a user clicks the donate now button, save bounty address and launch 'Send Funds' window
     $('#btn-donate').click($.debounce(100, function(e){
-        FW.DIALOG_DATA = {
+        DW.DIALOG_DATA = {
             destination: address,
-            token: 'BTC'
+            token: 'DOGE'
         };
         dialogSend();
         dialogClose('dialog-donate');
@@ -59,7 +59,7 @@ $(document).ready(function(){
 
     // When a user clicks the donate now button, save bounty address and launch 'Send Funds' window
     $('#btn-buy').click($.debounce(100, function(e){
-        FW.DIALOG_DATA = {
+        DW.DIALOG_DATA = {
             token: 'FULLACCESS'
         };
         loadPage('dispensers');

@@ -12,7 +12,7 @@ function updateMarketDepthChart( market, orderbook ){
         asset2 = assets[1];
     // console.log('updateMarketDepthChart=',market, orderbook);
     // Store the orderbook price/volume data so we can easily reference in tooltips
-    FW.MARKET_DEPTH = [];
+    DW.MARKET_DEPTH = [];
     // Set second array value to total volume
     $.each(types, function(idx,name){
         var a = 0,
@@ -23,7 +23,7 @@ function updateMarketDepthChart( market, orderbook ){
             b       = numeral(parseFloat(b) + parseFloat(data[2])).format('0.00000000');
             data[1] = a;
             data[2] = b;
-            FW.MARKET_DEPTH[parseFloat(data[0])] = [data[1],data[2],name];
+            DW.MARKET_DEPTH[parseFloat(data[0])] = [data[1],data[2],name];
         });
     });
     // Convert all values to floats
@@ -80,7 +80,7 @@ function updateMarketDepthChart( market, orderbook ){
                 shared: true,
                 useHTML: true,
                 formatter: function(){
-                    var data = FW.MARKET_DEPTH[this.x],
+                    var data = DW.MARKET_DEPTH[this.x],
                         type = (data[2]=='bids') ? 'Buy' : 'Sell',
                         txt  = '<b>' + type + ' Depth</b>';
                     txt += '<table class="highcharts-tooltip-table">';
