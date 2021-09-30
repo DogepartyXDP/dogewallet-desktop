@@ -2744,6 +2744,9 @@ function createMultiSend(network, source, destination, memo, memo_is_hex, asset,
 // Handle creating issuance transaction
 function createIssuance(network, source, asset, quantity, divisible, description, destination, fee, callback){
     // console.log('createIssuance=', network, source, asset, quantity, divisible, description, destination, fee, callback);
+    var lock = (description=='LOCK') ? true : false;
+    if(lock)
+        description = null;
     var data = {
        method: "create_issuance",
        params: {
@@ -2753,6 +2756,7 @@ function createIssuance(network, source, asset, quantity, divisible, description
             divisible: (divisible) ? 1 : 0,
             description:  (description) ? description : null,
             transfer_destination: (destination) ? destination : null,
+            lock: lock,
             fee: parseInt(fee),
             allow_unconfirmed_inputs: true
         },
