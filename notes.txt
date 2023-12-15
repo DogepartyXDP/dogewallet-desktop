@@ -1,0 +1,6 @@
+# Create checksum.txt file
+sha256sum DogeWallet.linux32.tgz >> checksums.txt
+sha256sum DogeWallet.linux64.tgz >> checksums.txt
+sha256sum DogeWallet.osx64.dmg >> checksums.txt
+sha256sum DogeWallet.win32.exe >> checksums.txt
+sha256sum DogeWallet.win64.exe >> checksums.txt
