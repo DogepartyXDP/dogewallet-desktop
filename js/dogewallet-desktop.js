@@ -1252,7 +1252,6 @@ function updateWalletBalances( address, force ){
             if(doge && xdp){
                 // Sort array to show items in the following order
                 // DOGE & XDP 1st and second
-                console.log('doing sort');
                 // Alphabetical order for asset name
                 info.data.sort(function(a,b){
                     if(a.asset=='DOGE' && b.asset!='DOGE'){
