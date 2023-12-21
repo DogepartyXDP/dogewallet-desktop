@@ -19,9 +19,16 @@ $(document).ready(function(){
             type = $('#token-type').val();
         if(DW.ASSET_INFO && type=='')
             name = DW.ASSET_INFO.asset;
-        desc = 'xcp.coindaddy.io/' + name + '.json';
+        desc = 'xdp.coindaddy.io/' + name + '.json';
         $('#token-description').val(desc);
     }); 
+
+    // Trim any leading and trailing whitespace from description
+    $('#token-description').change(function(){
+        var el  = $(this),
+            val = el.val();
+        el.val(val.trim());
+    });
 
 });
 </script>

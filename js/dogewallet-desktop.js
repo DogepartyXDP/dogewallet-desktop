@@ -28,8 +28,11 @@ DW.NETWORK_INFO =  JSON.parse(ls.getItem('networkInfo')) || {};
 // Wallet format (0=Counterwallet, 1=BIP39)
 DW.WALLET_FORMAT = ls.getItem('walletFormat') || 0;
 
+// Wallet encryption status (0=default, 1=encrypted with password)
+DW.WALLET_ENCRYPTED = parseInt(ls.getItem('walletEncrypted')) || 0;
+
 // Minimum transaction fee
-DW.MINIMUM_TX_FEE_DEFAULT = 100000000;
+DW.MINIMUM_TX_FEE_DEFAULT = 1000000; // (0.001 DOGE)
 DW.MINIMUM_TX_FEE = ls.getItem('feeMinimum') || DW.MINIMUM_TX_FEE_DEFAULT;
 
 // Load current wallet address and address label
@@ -86,7 +89,6 @@ DW.MARKET_OPTIONS  = JSON.parse(ls.getItem('walletMarketOptions')) || [1,2]; // 
 DW.DEFAULT_DISPENSERS = ['XDP'];
 DW.BASE_DISPENSERS    = JSON.parse(ls.getItem('walletDispensers')) || DW.DEFAULT_DISPENSERS;
 DW.DISPENSER_OPTIONS  = JSON.parse(ls.getItem('walletDispenserOptions')) || []; // 1=hide closed 
-
 // Define arrays to hold DOGEpay information
 DW.DOGEPAY_ORDERS  = JSON.parse(ls.getItem('dogepayOrders'))  || {}; // array of order tx_hashes to monitor for DOGEpay transactions
 DW.DOGEPAY_MATCHES = JSON.parse(ls.getItem('dogepayMatches')) || {}; // array of order matches that have seen/processed
@@ -128,6 +130,44 @@ DW.MARKET_DATA = {};
 //     chart:     {}, // Chart data
 // }
 
+// Define cache for oracles
+DW.ORACLES = {}; 
+
+// Cache for cards from NFT projects
+DW.NFT_CARDS = []; // placeholder 
+DW.NFT_DATA  = JSON.parse(ls.getItem('nftInfo')) || []; // placeholder for raw NFT data
+
+// Load any dust data encoding preferences (stored in sats)
+DW.DUST_SIZE_REGULAR  = JSON.parse(ls.getItem('dustSizeRegular')) || false;
+DW.DUST_SIZE_MULTISIG = JSON.parse(ls.getItem('dustSizeMultisig')) || false;
+
+// Define balance viewing options
+DW.BALANCE_OPTIONS  = JSON.parse(ls.getItem('walletBalanceOptions')) || [1,2,3]; // 1=named, 2=subasset, 3=numeric 
+
+// Lazy Loader config
+DW.LAZY_LOAD_CONFIG = {
+    effect: 'fadeIn',
+    visibleOnly: true
+};
+
+// Define vars for donation system and load any saved preferences
+DW.DONATE         = {};                               // donation causes cache
+DW.DONATE_DEFAULT = 100000000;                        // 100000000  sats (1 DOGE)
+DW.DONATE_TRIGGER = 2500000000;                       // 2500000000 sats (25 DOGE - amount at which donation is actually added to a tx)
+DW.DONATE_TOTAL   = ls.getItem('donateTotal')   || 0; // Track total donation until we hit DW.DONATE_TRIGGER
+DW.DONATE_COUNT   = ls.getItem('donateCount')   || 0; // Track number of transactions
+DW.DONATE_STATUS  = ls.getItem('donateStatus')  || 1; // 1=enabled, 0=disabled, #=% of txs
+DW.DONATE_ADDRESS = ls.getItem('donateAddress') || 'DDonateSk9p1NNwH4dur1Kev3YvSv349hQ';
+DW.DONATE_AMOUNT  = ls.getItem('donateAmount')  || DW.DONATE_DEFAULT;
+
+// Load any auto-lock settings (default to 15 minutes)
+DW.WALLET_AUTOLOCK      = ls.getItem('walletAutoLock') || 15;
+DW.WALLET_LAST_UNLOCKED = Date.now();
+
+// Define cache for asset divisibility
+DW.ASSET_DIVISIBLE = {};
+DW.ASSET_DIVISIBLE['DOGE'] = true;
+DW.ASSET_DIVISIBLE['XDP'] = true;
 
 // Start loading the wallet 
 $(document).ready(function(){
@@ -143,6 +183,10 @@ $(document).ready(function(){
     // If user has not already agreed to license agreement, display it
     if(parseInt(ls.getItem('licenseAgreementAccept'))!=1)
         dialogLicenseAgreement();
+
+    // If user has not already agreed to Automatic Donation System (ADS) agreement, display it
+    if(parseInt(ls.getItem('donateAgreementAccept'))!=1)
+        dialogDonateAgreement();
 
     // Load the server information
     var info = ls.getItem('serverInfo');
@@ -179,7 +223,10 @@ function setXChainAPI( network ){
 
 // Handle checking for an updated wallet version
 function checkWalletUpgrade(version, message){
-    $.get('https://dogeparty.net/dogewallet-desktop/releases/current', function(current){
+    $.ajax({
+        url: "https://dogeparty.net/dogewallet-desktop/releases/current",
+        cache: false
+    }).done(function(current){
         // Only proceed if we have a response/version
         if(current){
             var a  = version.trim().split('.'),
@@ -200,18 +247,20 @@ function checkWalletUpgrade(version, message){
                 dialogMessage('Current Release', 'You are running the latest version of DogeWallet', false, true);
 
         }
-
-    })
+    });
 }
 
 // Handle loading content into the main panel
 function loadPage(page){
     var html = page + '.html';
     // Handle mapping pages to correct content
-    if(page=='betting')     html = 'betting.html';
+    if(page=='betting'){
+        // html = (checkTokenAccess()) ? 'betting/index.html' : 'betting/betting.html';
+        html = 'betting/betting.html';
+    }
+    if(page=='dispensers')  html = 'dispensers/index.html';
     if(page=='exchange')    html = 'exchange/markets.html';
     if(page=='market')      html = 'exchange/market.html';
-    if(page=='dispensers')  html = 'dispensers/index.html';
     // Load the page content and switch the tab to active
     $('#main-content-panel').load('html/' + html);
     $('.header .navbar-nav li > a').removeClass('active');
@@ -222,7 +271,7 @@ function loadPage(page){
 function initWallet(){
     if(ss.getItem('wallet') == null){
         if(ls.getItem('wallet')){
-            if(parseInt(ls.getItem('walletEncrypted'))==1){
+            if(DW.WALLET_ENCRYPTED){
                 // Try to unlock the wallet when app first opens
                 // if(parseInt(ss.getItem('skipWalletAuth'))!=1)
                 //     dialogPassword();
@@ -243,6 +292,12 @@ function initWallet(){
     // Check every 60 seconds if we should update the wallet information
     setInterval(checkUpdateWallet, 60000);
     updateWalletOptions();
+    // Populate the oracle list
+    updateOracleList();
+    // Populate the donation list
+    updateDonationList();
+    // Populate DW.NFT_CARDS 
+    updateNFTCards();
 }
 
 // Reset/Remove wallet
@@ -255,6 +310,7 @@ function resetWallet(){
     ls.removeItem('walletAddresses');
     ls.removeItem('walletAddressLabel');
     ls.removeItem('walletBalances');
+    ls.removeItem('walletBalanceOptions');
     ls.removeItem('walletFormat');
     ls.removeItem('walletHistory');
     ls.removeItem('walletNetwork');
@@ -269,14 +325,17 @@ function resetWallet(){
     ss.removeItem('wallet');
     ss.removeItem('walletPassword');
     ss.removeItem('skipWalletAuth');
+    DW.WALLET_ADDRESS   = null;
+    DW.WALLET_ADDRESSES = []
     DW.WALLET_BALANCES  = [];
     DW.WALLET_HISTORY   = [];
     DW.WALLET_KEYS      = {};
     DW.WALLET_FORMAT    = 0;
-    DW.DOGEPAY_ORDERS    = {};
-    DW.DOGEPAY_MATCHES   = {};
-    DW.DOGEPAY_QUEUE     = {};
-    DW.DOGEPAY_ORDERS    = {}
+    DW.WALLET_ENCRYPTED = 0;
+    DW.BTCPAY_ORDERS    = {};
+    DW.BTCPAY_MATCHES   = {};
+    DW.BTCPAY_QUEUE     = {};
+    DW.BTCPAY_ORDERS    = {}
     DW.BASE_MARKETS     = DW.DEFAULT_MARKETS;
     DW.BASE_DISPENSERS  = DW.DEFAULT_DISPENSERS;
 }
@@ -323,22 +382,13 @@ function createWallet( passphrase, isBip39=false ){
     // Add the first 10 addresses to the wallet (both mainnet and testnet)
     var networks = ['mainnet','testnet'];
     networks.forEach(function(net){
-        var bcName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
-            bjName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
-            bcNet  = bc.Networks[bcName], // Bitcore Network
-            bjNet  = bj.networks[bjName]; // BitcoinJS Network
-            console.log('bcName, bcNet=',bcName, bcNet);
-        var s = bc.HDPrivateKey.fromSeed(wallet, bcNet);
         for(var i=0;i<10;i++){
-            var d = s.derive("m/0'/0/" + i),
-                a = bc.Address(d.publicKey, bcNet).toString();
-                // b = bj.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bjNet }).address;
-            addWalletAddress(net, a, 'Address #' + (i + 1), 1, i);
-            // addWalletAddress(net, b, 'Segwit Address #' + (i + 1), 7, i);
+            addNewWalletAddress(net, 'normal');
+            // addNewWalletAddress(net, 'bech32');
         }
     });
     // Set current address to first address in wallet
-    // This also handles saving TBE.WALLET_ADDRESSES to disk
+    // This also handles saving DW.WALLET_ADDRESSES to disk
     setWalletAddress(getWalletAddress(0), true);
 }
 
@@ -348,31 +398,53 @@ function addNewWalletAddress(net=1, type='normal'){
     var ls   = localStorage;
     net      = (net=='testnet' || net==2) ? 2 : 1;
     network  = (net==2) ? 'testnet' : 'mainnet',
-    bcName   = (network=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
-    bjName   = (network=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
+    bcName   = (net==2) ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
+    bjName   = (net==2) ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
     bcNet    = bc.Networks[bcName], // Bitcore Network
-    bjNet    = bj.networks[bjName], // BitcoinJS Network
-    addrtype = (type=='segwit') ? 7 : 1; 
+    bjNet    = bj.networks[bjName], // BitcoinJS Network;
+    addrtype = 1, // 1=Normal, 7=Bech32, 8=Taproot
     address  = false;
+    // Normalize types
+    if(type=='p2pkh')
+        type = 'normal';
+    if(type=='segwit')
+        type = 'bech32';
+    // Set the address type
+    if(type=='bech32')
+        addrtype = 7;
+    if(type=='taproot')
+        addrtype = 8;
     // Lookup the highest indexed address so far
-    var idx = 0;
+    var idx  = 0,
+        init = true;
     DW.WALLET_ADDRESSES.forEach(function(item){
-        if(item.type==addrtype && item.network==net && item.index>idx)
-            idx = item.index;
+        if(item.type==addrtype && item.network==net){
+            init = false;
+            if(item.index>idx)
+                idx = item.index;
+        }
     });
-    idx++; // Increase index for new address
+    // Increase index for new address
+    if(!init)
+        idx++; 
     // Generate new address
     var w = getWallet(),
-        n = bcNet,
-        s = bc.HDPrivateKey.fromSeed(w, n),
+        s = bc.HDPrivateKey.fromSeed(w, bcNet),
         d = s.derive("m/0'/0/" + idx);
-    address = bc.Address(d.publicKey, n).toString();
-    label   = 'Address #' + (idx + 1);
-    // Support generating Segwit Addresses (Bech32)
-    if(type=='segwit'){
+    label = 'Address #' + (idx + 1);
+    // Support generating Normal Addresses (P2PKH)
+    if(type=='normal')
+        address = bc.Address(d.publicKey, bcNet).toString();
+    // Support generating Bech32 Addresses (Segwit)
+    if(type=='bech32'){
         var netname = (net==2) ? 'testnet' : 'bitcoin';
         var address = bitcoinjs.payments.p2wpkh({ pubkey: d.publicKey.toBuffer(), network: bjNet }).address;
         label = 'Segwit ' + label;
+    }
+    // Support generating Taproot Addresses (Segwit)
+    if(type=='taproot'){
+        // Coming soon
+        label = 'Taproot ' + label;
     }
     // Add the address to the wallet
     addWalletAddress(network, address, label, addrtype, idx);
@@ -411,7 +483,8 @@ function encryptWallet( password, skip=false ){
     ls.setItem('wallet', encWallet);
     // Mark wallet as encrypted and save encrypted password unless instructed not to
     if(!skip){
-        ls.setItem('walletEncrypted',1);
+        DW.WALLET_ENCRYPTED = 1;
+        ls.setItem('walletEncrypted',DW.WALLET_ENCRYPTED);
         ls.setItem('walletPassword', encPass);
     }
     ls.setItem('walletKeys', encKeys);
@@ -499,7 +572,7 @@ function setWalletAddress( address, load=0 ){
 
 // Handle adding addresses to DW.WALLET_ADDRESSES array
 function addWalletAddress( network=1, address='', label='', type=1, index='', path='' ){
-    console.log('addWalletAddress network,address,label,type,index=',network,address,label,type,index, path);
+    // console.log('addWalletAddress network,address,label,type,index=',network,address,label,type,index, path);
     // Bail out if no address is passed
     if(address=='')
         return;
@@ -518,7 +591,7 @@ function addWalletAddress( network=1, address='', label='', type=1, index='', pa
         address: address, // Address to add
         network: network, // Default to mainnet (1=mainnet, 2=testnet)
         label: label,     // Default to blank label
-        type: type,       // 1=indexed, 2=imported (privkey), 3=watch-only, 4=trezor, 5=ledger, 6=keepkey, 7=segwit
+        type: type,       // 1=indexed, 2=imported (privkey), 3=watch-only, 4=trezor, 5=ledger, 6=keepkey, 7=bech32, 8=taproot
         path: path,       // node path for address (ex: m/44'/0'/0)
         index: index      // wallet address index (used in address sorting)
     };
@@ -544,7 +617,7 @@ function removeWalletAddress( address ){
     encryptWallet(getWalletPassword(), true);
 }
 
-// Handle returning the information from TBE.WALLET_ADDRESSES for a given address
+// Handle returning the information from DW.WALLET_ADDRESSES for a given address
 function getWalletAddressInfo( address ){
     var info = false;
     DW.WALLET_ADDRESSES.forEach(function(item){
@@ -591,7 +664,7 @@ function addWalletPrivkey(key){
         bcNet   = bc.Networks[bcName], // Bitcore Network
         ls      = localStorage,
         address = false;
-    // Try to generate a public key and address using the key
+   // Try to generate a public key and address using the key
     try {
         privkey = new bc.PrivateKey.fromWIF(key);
         pubkey  = privkey.toPublicKey();
@@ -752,7 +825,7 @@ function getAssetInfo(asset, callback, force){
         block  = (DW.NETWORK_INFO.network_info) ? DW.NETWORK_INFO.network_info[net].block_height : 1,
         data   = DW.ASSET_INFO[asset] || false,
         last   = (data) ? data.block : 0,
-        update = (block > last || force) ? true : false;
+        update = (block > last || data.init ||force) ? true : false;
     // Initialize the asset data cache
     if(!DW.ASSET_INFO[asset])
         DW.ASSET_INFO[asset] = {}
@@ -795,7 +868,6 @@ function getAssetReputationInfo(asset, callback, force){
 // Check if wallet price/balance info should be updated
 function checkUpdateWallet(){
     updateNetworkInfo();
-    checkDonateReminder();
     checkDogepayTransactions();  
     var addr = getWalletAddress();
     if(addr){
@@ -804,21 +876,20 @@ function checkUpdateWallet(){
         if(typeof updateDispensersLists === 'function')
             updateDispensersLists();
     }
+    // updateNFTInfo();
+    checkAutoLock();
 };
 
 
 
-// Handle begging for donations from users on a regular basis
-function checkDonateReminder(){
-    var ls   = localStorage,
-        last = ls.getItem('walletDonationReminder') || 0,
-        ms   = 604800000; // 1 week
-    if((parseInt(last) + ms)  <= Date.now()){
-        dialogDonate();
-        ls.setItem('walletDonationReminder', Date.now());
+// Check if we should auto-lock wallet based on the users preferences
+function checkAutoLock(){
+    // If wallet is encrypted, unlocked, auto-lock is enabled, and we are past the auto-lock time, then lock the wallet
+    if(DW.WALLET_ENCRYPTED && ss.getItem('wallet') && DW.WALLET_AUTOLOCK>0 && (DW.WALLET_LAST_UNLOCKED + (DW.WALLET_AUTOLOCK * 60 * 1000)) < Date.now()){
+        lockWallet();
+        updateWalletOptions();
     }
 }
-
 
 // Handle checking for special tokens to enable access to features
 // Check access each time a feature is accessed instead of setting a localStorage flag (make it a pain to access feature without access token)
@@ -1111,19 +1182,12 @@ function updateDOGEBalance(address, callback){
                 if(typeof bal === 'number'){
                     callback(bal)
                 } else {
-                    // Failover #2 - Chain.so
-                    getDOGEBalance(address, 'chain.so', function(bal){
+                    // Failover #2 - Addrindexrs
+                    getDOGEBalance(address, 'addrindexrs', function(bal){
                         if(typeof bal === 'number'){
                             callback(bal)
                         } else {
-                            // Failover #3 - Indexd
-                            getDOGEBalance(address, 'indexd', function(bal){
-                                if(typeof bal === 'number'){
-                                    callback(bal)
-                                } else {
-                                    callback(0);
-                                }
-                            });
+                            callback(0);
                         }
                     });
                 }
@@ -1154,21 +1218,15 @@ function getDOGEBalance(address, source, callback){
         }).always(function(){
             callback(bal);
         });
-    // Chain.so
-    } else if(source=='chain.so'){
-        var net = (DW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE';
-        $.getJSON('https://chain.so/api/v2/get_address_balance/' + net + '/' + addr, function( o ){
-            if(o.status=='success')
-                bal = (parseFloat(o.data.confirmed_balance) + parseFloat(o.data.unconfirmed_balance)) * 100000000;
-        }).always(function(){
-            callback(bal);
-        });
-    // CoinDaddy addrindexrs
-    } else if(source=='indexd'){
-        var port = (DW.WALLET_NETWORK==2) ? 18432 : 8432;
-        $.get('http://public.coindaddy.io:' + port + '/a/' + addr + '/balance', function( balance ){
-            if(typeof balance === 'number')
-                bal = balance;
+    // Addrindexrs (last resort)
+    } else if(source=='addrindexrs'){
+        var port = (DW.WALLET_NETWORK==2) ? 18096 : 8096,
+            url  = 'http://api1.dogeparty.net:' + port + '/a/' + addr + '/balance';
+        $.get(url, function( o ){
+            if(o && o[0] && typeof parseFloat(o[0].confirmed) === 'number'){
+                o = o[0];
+                bal = parseInt(numeral(parseFloat(o.confirmed) + parseFloat(o.unconfirmed)).multiply(100000000).format('0'));
+            }
         }).always(function(){
             callback(bal);
         });
@@ -1194,24 +1252,29 @@ function updateWalletBalances( address, force ){
             if(doge && xdp){
                 // Sort array to show items in the following order
                 // DOGE & XDP 1st and second
+                console.log('doing sort');
                 // Alphabetical order for asset name
                 info.data.sort(function(a,b){
-                    if(a.asset.length==3 && b.asset.length>3)
+                    if(a.asset=='DOGE' && b.asset!='DOGE'){
                         return -1;
-                    if(a.asset.length>3 && b.asset.length==3)
-                        return 1;
-                    if(a.asset.length==3 && b.asset.length==3){
-                        if(a < b)
-                            return -1;
-                        if(a > b)
-                            return 1;
                     } else {
-                        var strA = (a.asset_longname && a.asset_longname!='') ? a.asset_longname : a.asset,
-                            strB = (b.asset_longname && b.asset_longname!='') ? b.asset_longname : b.asset;
-                        if(strA < strB)
+                        if(a.asset.length==3 && b.asset.length>3)
                             return -1;
-                        if(strA > strB)
+                        if(a.asset.length>3 && b.asset.length==3)
                             return 1;
+                        if(a.asset.length==3 && b.asset.length==3){
+                            if(a < b)
+                                return -1;
+                            if(a > b)
+                                return 1;
+                        } else {
+                            var strA = (a.asset_longname && a.asset_longname!='') ? a.asset_longname : a.asset,
+                                strB = (b.asset_longname && b.asset_longname!='') ? b.asset_longname : b.asset;
+                            if(strA < strB)
+                                return -1;
+                            if(strA > strB)
+                                return 1;
+                        }                        
                     }
                     return 0;
                 });
@@ -1265,14 +1328,14 @@ function updateDOGEHistory(address, callback){
         if(txs instanceof Array){
             callback(txs)
         } else {
-            // Failover #1 - Chain.so
-            getDOGEHistory(address, 'chain.so', function(txs){
-                if(txs instanceof Array){
-                    callback(txs)
-                } else {
-                    callback([]);
-                }
-            });
+            // Failover #1 - Chain.so (no longer works... paid API)
+            // getDOGEHistory(address, 'chain.so', function(txs){
+            //     if(txs instanceof Array){
+            //         callback(txs)
+            //     } else {
+            //         callback([]);
+            //     }
+            // });
         }
     });
 }
@@ -1313,36 +1376,6 @@ function getDOGEHistory(address, source, callback){
             }
         }).always(function(){
             callback(data);
-        });
-    }
-    // Chain.so - uses FIFO and requires multiple calls, so not really helpful, but useful as a last resort
-    if(source=='chain.so'){
-        var net = (DW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE';
-        $.getJSON('https://chain.so/api/v2/get_tx_received/' + net + '/' + addr, function( o ){
-            if(o.status=='success'){
-                data = [];
-                o.data.txs.forEach(function(tx){
-                    data.push({
-                        hash: tx.txid,
-                        timestamp: tx.time,
-                        quantity: tx.value
-                    });                    
-                });
-            }
-        }).always(function(){
-            $.getJSON('https://chain.so/api/v2/get_tx_spent/' + net + '/' + addr, function( o ){
-                if(o.status=='success'){
-                    o.data.txs.forEach(function(tx){
-                        data.push({
-                            hash: tx.txid,
-                            timestamp: tx.time,
-                            quantity: '-' + tx.value
-                        });                    
-                    });
-                }
-            }).always(function(){
-                callback(data);
-            });
         });
     }
 }
@@ -1529,8 +1562,9 @@ function updateNetworkInfo( force ){
 }
 
 // Display error message and run callback (if any)
-function cbError(msg, callback){
-    dialogMessage(null, msg, true, true, function(){
+function cbError(o, msg, callback){
+    var error = getCpErrorMessage(o, msg);
+    dialogMessage(null, error, true, true, function(){
         // Clear out transaction status after user clicks OK
         updateTransactionStatus('clear');
     });
@@ -1557,18 +1591,29 @@ function isBech32(addr) {
     }
 }
 
+// Get public key for a given network and address
+function getPublicKey(network, address){
+    var privkey = getPrivateKey(network, address),
+        pubkey  = bc.PrivateKey.fromWIF(privkey).toPublicKey().toString();
+    return pubkey;
+}
+
 // Get private key for a given network and address
 function getPrivateKey(network, address, prepend=false){
     var wallet = getWallet(),
-        net    = (network=='testnet'||network==2) ? 'testnet' : 'mainnet',
+        net    = (network=='testnet') ? 'testnet' : 'mainnet',
+        priv   = false,
+        prependStr = 'p2wpkh:';
         bcName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcore
         bjName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // Network name in bitcoinjs
         bcNet  = bc.Networks[bcName], // Bitcore Network
-        bjNet  = bj.networks[bjName], // BitcoinJS Network        
-        priv   = false;
+        bjNet  = bj.networks[bjName]; // BitcoinJS Network;
     // Check any we have a match in imported addresses
-    if(DW.WALLET_KEYS[address])
+    if(DW.WALLET_KEYS[address]){
         priv = DW.WALLET_KEYS[address];
+        if(prepend && isBech32(address))
+            priv = prependStr + priv;
+    }
     // Loop through HD addresses trying to find private key
     if(!priv){
         var key = bc.HDPrivateKey.fromSeed(wallet, bcNet),
@@ -1588,7 +1633,7 @@ function getPrivateKey(network, address, prepend=false){
                 if(a==address){
                     priv = d.privateKey.toWIF();
                     if(prepend)
-                        priv = 'p2wpkh:' + d.privateKey.toWIF();
+                        priv = prependStr + priv;
                 }
             } else {
                 priv = d.privateKey.toWIF();
@@ -1598,24 +1643,26 @@ function getPrivateKey(network, address, prepend=false){
     return priv;
 }
 
+
 // Handle updating the balances list
 function updateBalancesList(){
-    var html     = '',
-        cnt      = 0,
-        active   = 'DOGE', // default to DOGE being active
-        addr     = DW.WALLET_ADDRESS,
-        search   = $('.balances-list-search'),
-        filter   = search.val(),
-        info     = getAddressBalance(addr),
+    var html    = '',
+        cnt     = 0,
+        subCnt  = 0,
+        active  = 'DOGE', // default to DOGE being active
+        addr    = DW.WALLET_ADDRESS,
+        search  = $('.balances-list-search'),
+        filter  = search.val(),
+        info    = getAddressBalance(addr),
         doge     = getAddressBalance(addr, 'DOGE'),
         xdp      = getAddressBalance(addr, 'XDP'),
         doge_amt = (doge) ? doge.quantity : 0,
         xdp_amt  = (xdp) ? xdp.quantity : 0,
         doge_val = (doge) ? doge.estimated_value.usd : 0,
         xdp_val  = (xdp) ? xdp.estimated_value.usd : 0,
-        fmt      = '0,0.00000000',
-        fmt_usd  = '0,0.00',
-        display  = [];
+        fmt     = '0,0.00000000',
+        fmt_usd = '0,0.00',
+        display = [];
     if(info && info.data.length){
         // Always display DOGE balance
         display.push({ 
@@ -1637,52 +1684,114 @@ function updateBalancesList(){
         // Loop through balances and add
         info.data.forEach(function(item){
             if(item.asset.length>=4 && item.asset!='DOGE'){
-                var asset = (item.asset_longname!='') ? item.asset_longname : item.asset,
-                    fmt   = (item.quantity.indexOf('.')!=-1) ? '0,0.00000000' : '0,0';
+                var asset   = (item.asset_longname!='') ? item.asset_longname : item.asset,
+                    fmt     = (item.quantity.indexOf('.')!=-1) ? '0,0.00000000' : '0,0'
+                    subOf   = (asset.indexOf('.')!=-1) ? asset.split(".")[0] : '',
+                    parent   = display.find(o => o.asset === subOf) ? subOf : ''; // Only if parent exists
                 display.push({ 
                     asset: asset, 
                     icon: item.asset, 
                     quantity: numeral(item.quantity).format(fmt), 
                     value: numeral(item.estimated_value.usd).format(fmt_usd), 
+                    collapsed: typeof item.collapsed != 'undefined' ? item.collapsed : false,
+                    parent: parent,
                     cls: '' 
                 });
             }
         });
         display.forEach(function(item){
+            var asset    = item.asset,
+                isParent = display.find(o => o.parent === asset) ? true : false,
+                type     = (asset.substr(0,1)=='A') ? 3 : (asset.indexOf('.')!=-1) ? 2 : 1; 
+            if(isParent){
+                item.isParent = isParent;
+                // Init cache for the asset and cache the collapsed state
+                if(!DW.ASSET_INFO[asset])
+                    DW.ASSET_INFO[asset] = { init: true };
+                DW.ASSET_INFO[asset].collapsed = item.collapsed;
+            }
             var show = (filter!='') ? false : true;
+            item.isSearch = (filter!='') ? true : false;
+            // Filter results based on search
             if(filter!='')
-                show = (item.asset.search(new RegExp(filter, "i")) != -1) ? true : false;
+                show = (asset.search(new RegExp(filter, "i")) != -1) ? true : false;
+            // Filter results based on asset type viewing preferences
+            if(DW.BALANCE_OPTIONS.indexOf(type)==-1)
+                show = false;
+            // Always show XCP and BTC unless there is a filter
+            if(['BTC','XCP'].indexOf(asset)!=-1 && filter=='')
+                show = true;
             if(show){
-                if(cnt % 2)
-                    item.cls += ' striped'
-                cnt++;
+                // Striping based on whether it's a regular asset or a subasset with grail card
+                if(typeof item.parent == 'undefined' || item.parent === ''){
+                    if(cnt % 2)
+                        item.cls += ' striped'
+                    cnt++;
+                    subCnt = 0;
+                } else {
+                    item.cls += ' balances-list-subasset'
+                    if(subCnt % 2)
+                        item.cls += ' striped'
+                    subCnt++;
+                }
                 html += getBalanceHtml(item);
             }
         });
     }
     // Update balances list with completed html
     $('.balances-list-assets ul').html(html);
+    $('.balances-list-item .lazy-load').Lazy(DW.LAZY_LOAD_CONFIG);
     // Handle updating the 'active' item in the balances list
     // We need to do this every time we update the balances list content
-    $('.balances-list ul li').click($.debounce(100,function(e){
-        $('.balances-list ul li').removeClass('active');
-        $(this).addClass('active');
-        var asset = $(this).find('.balances-list-asset').text();
-        loadAssetInfo(asset);
+    $('.balances-list-assets ul li').off('click');
+    $('.balances-list-assets ul li').click($.debounce(100,function(e){
+        var target = $(e.target);
+        if (target.is('a.balances-list-collapsible')) {
+            var parent = $(this).attr('data-asset'),
+                isCollapsed = DW.ASSET_INFO[parent].collapsed,
+                subs = $('.balances-list ul li[data-parent="' + parent + '"]');
+            if (isCollapsed) {
+                subs.hide();
+                target.text('+');
+            } else {
+                subs.show();
+                target.html('&#8211;');
+            }
+            info.data.filter(obj => {
+                if (obj.asset == parent) {
+                    obj.collapsed = !obj.collapsed;
+                    DW.ASSET_INFO[parent].collapsed = obj.collapsed;
+                }
+            });
+        } else {
+            $('.balances-list ul li').removeClass('active');
+            $(this).addClass('active');
+            var asset = $(this).find('.balances-list-asset').text();
+            loadAssetInfo(asset);
+        }
     }));
 }
 
 // Handle returning html for a asset balance item
 function getBalanceHtml(data){
-    var value = (data.value!='0.00') ? '$' + data.value : '';
-    var html =  '<li class="balances-list-item ' + data.cls + '" data-asset="' + data.asset+ '">' +
-                '    <div class="balances-list-icon">' +
-                '        <img src="' + DW.XCHAIN_API + '/icon/' + data.icon + '.png" >' +
+    var value       = (data.value!='0.00') ? '$' + data.value : '',
+        isCollapsed = data.collapsed ? '&#8211;' : '+',
+        isParent    = data.isParent,
+        isSearch    = data.isSearch,
+        parent      = data.parent,
+        parentInfo  = DW.ASSET_INFO[parent];
+    // Define collapse html for parent assets with subasset children
+    var html_collapse = (isParent && !isSearch) ? '<td align="right"><a href="#" class="balances-list-collapsible" >' + isCollapsed + '</a></td>' : '';
+    // Don't display the item if this is a subasset and the parent asset is collapsed (unless we are doing a search)
+    var html_style    = (parent && parentInfo && parentInfo.collapsed == false && !isSearch) ? 'display: none;' : '';
+    var html =  '<li class="balances-list-item ' + data.cls + '" data-asset="' + data.asset + '" data-parent="' + parent + '" style="' + html_style + '">' +
+                '    <div class="balances-list-icon' + ((parentInfo && data.isSearch != true) ? ' indented' : '') + '">' +
+                '        <img class="lazy-load" data-src="' + DW.XCHAIN_API + '/icon/' + data.icon + '.png" src="' + DW.XCHAIN_API + '/icon/XDP.png">' +
                 '    </div>' +
                 '    <div class="balances-list-info">' +
                 '        <table width="100%">' +
                 '        <tr>' +
-                '            <td class="balances-list-asset" colspan="2">' + data.asset + '</div>' +
+                '            <td class="balances-list-asset" colspan="' + (isParent ? 1 : 2) + '">' + data.asset + '</td>' + html_collapse + 
                 '        <tr>' +
                 '            <td class="balances-list-amount">' + data.quantity + '</td>' +
                 '            <td class="balances-list-price">' + value + '</td>' +
@@ -1828,17 +1937,62 @@ function getHistoryHtml(data){
 // Handle resetting the asset information to a fresh/new state
 function resetAssetInfo(asset){
     $('#asset-name').text(' ');
-    $('#asset-value-doge').text(' ');
+    $('#asset-value-btc').text(' ');
     $('#asset-value-xdp').text(' ');
     $('#asset-value-usd').text(' ');    
     $('#asset-total-supply').text(' ');
     $('#asset-marketcap').text(' ');
     $('#asset-last-price').text(' ')
-    $('#rating_current').text('NA');
-    $('#rating_30day').text('NA');
-    $('#rating_6month').text('NA');
-    $('#rating_1year').text('NA');
-    $('#asset-info-enhanced').hide();
+    // Reset Market Information
+    $('#market-xdp-price-xdp').text('');
+    $('#market-xdp-price-usd').text('');
+    $('#market-xdp-floor-xdp').text('');
+    $('#market-xdp-floor-usd').text('');
+    $('#market-doge-price-doge').text('');
+    $('#market-doge-price-usd').text('');
+    $('#market-doge-floor-doge').text('');
+    $('#market-doge-floor-usd').text('');
+    $('#market-marketcap-doge').text('');
+    $('#market-marketcap-usd').text('');
+    // Hide the extended info
+    $('#additionalInfoNotAvailable').show();
+    $('#additionalAssetInfo').hide();
+    $('#ownerInfo').hide();
+    $('#contactInfo').hide();
+    $('#socialInfo').hide();
+    $('#imagesInfo').hide();
+    $('#audioInfo').hide();
+    $('#videoInfo').hide();
+    $('#fileInfo').hide();
+    $('#dnsInfo').hide();
+    $('#ownerInfo').hide();
+    $('#ownerInfo').hide();
+    // Reset the enhanced asset info fields
+    $('#assetName').text('').parent().hide();
+    $('#assetWebsite').text('').parent().hide();
+    $('#pgpSignature').text('').parent().hide();
+    $('#assetCategory').text('').parent().hide();
+    $('#assetSubCategory').text('').parent().hide();
+    $('#assetCategoryOther').text('').parent().hide();
+    $('#assetExtendedDescription').text('').parent().hide();
+    $('#ownerName').text('').parent().hide();
+    $('#ownerTitle').text('').parent().hide();
+    $('#ownerOrganization').text('').parent().hide();
+    // Reset the digital artwork (images/audio/video) fields
+    $('#officialCard').html('').hide();
+    $('#digitalArtInfo').hide();
+    $('#artwork-information').hide();
+    $('#artwork-title').text('').parent().hide();
+    $('#artwork-header').hide();
+    $('#video-header').hide();
+    $('#audio-header').hide();
+    $('#custom-content-header').hide();
+    $('#artwork-image').attr('src','images/icons/xdp.png').hide();
+    $('#artwork-stamp').attr('src','images/icons/xdp.png').hide();
+    $('#video-wrapper').html('').hide();
+    $('#video-wrapper-youtube').html('').hide();
+    $('#audio-wrapper').html('').hide();
+    $('#audio-wrapper-soundcloud').html('').hide();
 }
 
 // Handle loading asset information 
@@ -1860,24 +2014,31 @@ function loadAssetInfo(asset){
         var val = balance.estimated_value;
         $('#asset-value-doge').text(numeral(val.doge).format('0,0.00000000'));
         $('#asset-value-xdp').text(numeral(val.xdp).format('0,0.00000000'));
-        $('#asset-value-usd').text('$' + numeral(val.usd).format('0,0.00'));
+        $('#asset-value-usd').text(numeral(val.usd).format('0,0.00'));
         var bal = balance.quantity,
             fmt = (balance.quantity.indexOf('.')==-1) ? '0,0' : '0,0.00000000';
         $('#asset-current-balance').text(numeral(bal).format(fmt));
         // Callback function to process asset information
         var cb = function(o){
-            // console.log('o=',o);
             if(!o.error){
-                var fmt = (String(o.supply).indexOf('.')==-1) ? '0,0' : '0,0.00000000';
+                var xdp_usd  = getAssetPrice('XDP'),
+                    doge_usd = getAssetPrice('DOGE'),
+                    fmtA    = '0,0.00000000',
+                    fmtB    = '0,0.00',
+                    fmt     = (String(o.supply).indexOf('.')==-1) ? '0,0' : '0,0.00000000',
+                    lock    = $('#asset-locked-status'),
+                    mcap    = o.market_info.doge.price * o.supply;
                 $('#asset-total-supply').text(numeral(o.supply).format(fmt));
-                // console.log('xdp,supply,usd',o.estimated_value.xdp, o.supply, xdp_usd);
-                var xdp_usd = getAssetPrice('XDP'),
-                    mcap    = numeral((o.estimated_value.xdp * o.supply) * xdp_usd).format('0,0.00'),
-                    last    = numeral(o.estimated_value.xdp).format('0,0.00000000'),
-                    lock    = $('#asset-locked-status');
-                $('#asset-marketcap').text('$' + mcap);
-                $('#asset-last-price').text(last);
-                $('#asset-description').text(o.description);
+                $('#market-xdp-price-xdp').text(numeral(o.market_info.xdp.price).format(fmtA));
+                $('#market-xdp-price-usd').text(numeral(o.market_info.xdp.price * xdp_usd).format(fmtA));
+                $('#market-xdp-floor-xdp').text(numeral(o.market_info.xdp.floor).format(fmtA));
+                $('#market-xdp-floor-usd').text(numeral(o.market_info.xdp.floor * xdp_usd).format(fmtA));
+                $('#market-doge-price-doge').text(numeral(o.market_info.doge.price).format(fmtA));
+                $('#market-doge-price-usd').text(numeral(o.market_info.doge.price * doge_usd).format(fmtA));
+                $('#market-doge-floor-doge').text(numeral(o.market_info.doge.floor).format(fmtA));
+                $('#market-doge-floor-usd').text(numeral(o.market_info.doge.floor * doge_usd).format(fmtA));
+                $('#market-marketcap-doge').text(numeral(mcap).format(fmtA));
+                $('#market-marketcap-usd').text(numeral(mcap * doge_usd).format(fmtB));
                 // Force locked on certain items
                 if(['DOGE','XDP'].indexOf(asset)!=-1)
                     o.locked = true;
@@ -1886,66 +2047,45 @@ function loadAssetInfo(asset){
                 } else {
                     lock.removeClass('fa-lock').addClass('fa-unlock');
                 }
-                // Only allow feedback on XDP and assets, not DOGE
+                // // Only allow feedback on XDP and assets, not DOGE
+                // if(asset=='DOGE'){
+                //     feedback.hide();
+                // } else {
+                //     feedback.attr('href','https://reputation.coindaddy.io/xdp/asset/' + asset);
+                //     feedback.show();
+                // }
+                // Handle loading up basic info on DOGE and XDP 
                 if(asset=='DOGE'){
-                    feedback.hide();
-                } else {
-                    feedback.attr('href','https://reputation.coindaddy.io/xdp/asset/' + asset);
-                    feedback.show();
-                }
-                // Display the description info if we have it
-                var desc = String(o.description).toString(), // Make sure description is a string
-                    re1  = /^(.*).json$/,
-                    re2  = /^http:\/\//,
-                    re3  = /^https:\/\//;   
-                if(o.description!=''){
-                    $('#asset-info-not-available').hide();
-                    $('#asset-info').show();
-                }
-                $('#asset-description').text(o.description);
-                // If the file starts with http and does NOT end with JSON, then assume it is valid url and link it
-                if(!re1.test(desc) && (re2.test(desc)||re3.test(desc))){
-                    // create element to ensure we are only injecting a link with text for description/name
-                    var el = $('<a></a>').text(desc);
-                    el.attr('target','_blank');
-                    el.attr('href', desc);
-                    $('#asset-description').html(el);
-                }
-                // Handle loading enhanced asset info
-                if(re1.test(desc)){
-                    loadExtendedInfo();
-                } else if(asset=='DOGE'){
                     loadExtendedInfo({
+                        asset: 'DOGE',
                         name: 'Dogecoin (DOGE)',
                         description: 'Dogecoin is fun digital money',
                         website: 'https://dogecoin.com/'
                     });
                 } else if(asset=='XDP'){
                     loadExtendedInfo({
+                        asset: 'XDP',
                         name: 'Dogeparty (XDP)',
                         description: 'Dogeparty is a free and open platform that puts powerful financial tools in the hands of everyone with an Internet connection. Dogeparty creates a robust and secure marketplace directly on the Dogecoin blockchain, extending Dogecoin\'s functionality into a full fledged peer-to-peer financial platform.',
                         website: 'https://dogeparty.net'
                     });
                 } else {
-                    if(o.description==''){
-                        $('#asset-info-not-available').show();
-                        $('#asset-info').hide();
-                    }
+                    loadExtendedInfo(o);
                 }
             }
         }
-        // Callback function to process reputation information
-        var cb2 = function(o){
-            if(!o.error){
-                var arr = ['current','30day','6month','1year'];
-                arr.forEach(function(name){
-                    var rating = o['rating_' + name],
-                        text   = (rating>0) ? rating : 'NA';
-                    $('#rating_' + name).html('<a href="https://reputation.coindaddy.io/xdp/asset/' + asset + '" target="_blank"><div class="rateit" data-rateit-readonly="true" data-rateit-value="' + rating + '" data-rateit-ispreset="true"></div></a> <span class="rateit-score">' + text + '</span>')
-                });
-                $('.rateit').rateit();
-            }
-        }
+        // // Callback function to process reputation information
+        // var cb2 = function(o){
+        //     if(!o.error){
+        //         var arr = ['current','30day','6month','1year'];
+        //         arr.forEach(function(name){
+        //             var rating = o['rating_' + name],
+        //                 text   = (rating>0) ? rating : 'NA';
+        //             $('#rating_' + name).html('<a href="https://reputation.coindaddy.io/xdp/asset/' + asset + '" target="_blank"><div class="rateit" data-rateit-readonly="true" data-rateit-value="' + rating + '" data-rateit-ispreset="true"></div></a> <span class="rateit-score">' + text + '</span>')
+        //         });
+        //         $('.rateit').rateit();
+        //     }
+        // }
         // Hardcode the DOGE values.. otherwise request the asset details
         if(asset=='DOGE'){
             var doge = getAssetPrice('DOGE',true),
@@ -1956,63 +2096,76 @@ function loadAssetInfo(asset){
                 estimated_value: {
                     doge: 1,
                     usd: doge.market_cap_usd,
-                    xdp: xdp.price_doge
+                    xdp: 1/xdp.price_doge
+                },
+                market_info:{
+                    doge: {
+                        floor: 1,
+                        price: 1,
+                    },
+                    xdp: {
+                        floor: 1/xdp.price_doge,
+                        price: 1/xdp.price_doge
+                    }
                 },
                 supply: doge.total_supply
             });
-            cb2({
-                asset: "DOGE",
-                verify_status: "Not Verified",
-                rating_current: "5.00",
-                rating_30day: "5.00",
-                rating_6month: "5.00",
-                rating_1year: "5.00"
-            });
+            // cb2({
+            //     asset: "DOGE",
+            //     verify_status: "Not Verified",
+            //     rating_current: "5.00",
+            //     rating_30day: "5.00",
+            //     rating_6month: "5.00",
+            //     rating_1year: "5.00"
+            // });
         } else {
             getAssetInfo(asset, cb);
-            getAssetReputationInfo(asset, cb2);
+            // getAssetReputationInfo(asset, cb2);
         }
     }
 } 
 
 // Function to handle requesting extended asset info (if any) and updating page with extended info
 function loadExtendedInfo(data){
-    var desc = $('#asset-description').text(),
-        re1  = /^(.*).json$/,
-        re2  = /^http:\/\//,
-        re3  = /^https:\/\//;
-    // If the file starts with http and does NOT end with JSON, then assume it is valid url and link it
-    if(!re1.test(desc) && (re2.test(desc)||re3.test(desc)))
-        $('#asset-description').html('<a href="' + desc + '" target="_blank">' + desc + '</a>');
-    var url   = (re2.test(desc)||re3.test(desc)) ? desc : 'http://' + desc,
-        json  = DW.XCHAIN_API + '/relay?url=' + desc;
-    $('#asset-description').html('<a href="' + url + '" target="_blank">' + desc + '</a>');
-    var cb = function(o){
-        // console.log('o=',o);
-        if(o && (o.website!=''||o.description!='')){
-            $('#asset-info-enhanced').show();
-            var name = (o.name && o.name!='') ? o.name : o.asset;
-            $('#asset-info-name').text(name);
-            // Update Website
-            var html = '';
-            if(o.website && o.website!='')
-                html = '<a href="' + getValidUrl(o.website) + '" target="_blank">' + o.website + '</a>';
-            $('#asset-info-website').html(html);
-            $('#asset-info-pgpsig').text(o.pgpsig);
-            // Run description through sanitizer to remove any XSS or other nasties
-            if(o.description && o.description!=''){
-                var html = sanitizer.sanitize(o.description);
-                $('#asset-description').html(html);
-            }
+    var json  = /^(.*).json/i,
+        http  = /^http:\/\//,
+        https = /^https:\/\//,
+        ord   = /^ord:/i,
+        ipfs  = /^ipfs:/i,
+        desc  = data.description,
+        arr   = desc.split(';');
+    // Use cached JSON if we have it
+    if(data.json)
+        showExtendedAssetInfo(data.json);
+    // Display NFTs 
+    if(isNFT(data.asset))
+        showExtendedAssetInfo(data);
+    // Handle loading any JSON, IPFS, Ordinals content
+    if(json.test(desc) || ipfs.test(desc) || ord.test(desc)){
+        if(ipfs.test(desc)){
+            url = 'https://ipfs.io/ipfs/' + String(desc).replace(ipfs,'');
+        } else if(ord.test(desc)){
+            var hash = String(desc).replace(ord,'');
+            if(hash.length!=64)
+                hash = base64ToHex(hash);
+            url = 'https://inscription-decoder.vercel.app/api/image?type=json&tx=' + hash;
         } else {
-            $('#asset-info-enhanced').hide();
+            url = 'https://' + arr[0].replace('https://','').replace('http://','');
         }
-    };
-    if(data){
-        cb(data);
+        // Try to make a request for the JSON directly (might fail due to missing headers, etc)
+        $.getJSON( url, function( o ){ 
+            showExtendedAssetInfo(o);
+        }).fail(function(){
+            // Try to request the JSON through the xchain relay
+            var url = DW.XCHAIN_API + '/relay?url=' + desc;
+            $.getJSON( url, function( o ){ 
+                showExtendedAssetInfo(o);
+            });
+        }); 
     } else {
-        $.getJSON( json, function( o ){ cb(o); });
+        showExtendedAssetInfo(data);
     }
+
 }
 
 // Handle building out the HTML for the address list
@@ -2099,6 +2252,17 @@ function loadTransactionInfo(data){
     $('.history-content').load('html/history/' + data.type + '.html');
 } 
 
+// Function to handle checking if a URL is valid
+function isValidUrl(url) {
+    var req;
+    try {
+        req = new URL(url);
+    } catch (_) {
+        return false;
+    }
+    return req.protocol === "http:" || req.protocol === "https:";
+}
+
 // Function to handle making a URL a url valid by ensuring it starts with http or https
 function getValidUrl( url ){
     var re1 = /^http:\/\//,
@@ -2164,6 +2328,24 @@ function array2Object(arr){
     return vals;
 }
 
+// Handle extracting error message from Counterparty API response 
+function getCpErrorMessage(o, defaultMessage){
+    var msg = defaultMessage;
+    // If we have responseJSON, use it
+    if(o && o.responseJSON)
+        o = o.responseJSON;
+    if(o && o.error){
+        if(o.error.data && o.error.data.message){
+            msg = o.error.data.message;
+        } else if(o.error.message){
+            msg = o.error.message;
+        } else {
+            msg = o.error;
+        }
+    }
+    return msg;
+}
+
 /*
  * Dogeparty related functions
  */
@@ -2188,18 +2370,17 @@ function cpSend(network, source, destination, memo, memo_is_hex, currency, amoun
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast send transaction', cb);
+                            cbError(o,'Error while trying to broadcast send transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign send transaction',cb);
+                    cbError(o,'Error while trying to sign send transaction', cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create send transaction';
-            cbError(msg, cb);
+            cbError(o,'Error while trying to create send transaction', cb);
         }
     });
 }
@@ -2209,7 +2390,7 @@ function cpMultiSend(network, source, destination, memo, memo_is_hex, asset, qua
     var cb  = (typeof callback === 'function') ? callback : false;
     updateTransactionStatus('pending', 'Generating first dogeparty transaction...');
     // Create unsigned send transaction
-    createMultiSend(network, source, destination, memo, memo_is_hex, asset, quantity, DW.MINIMUM_TX_FEE, null, function(o){
+    createMultiSend(network, source, destination, memo, memo_is_hex, asset, quantity, fee, null, function(o){
         if(o && o.result){
             updateTransactionStatus('pending', 'Signing first dogeparty transaction...');
             // Sign the transaction
@@ -2223,18 +2404,17 @@ function cpMultiSend(network, source, destination, memo, memo_is_hex, asset, qua
                             cpMultiSecondSend(network, source, destination, memo, memo_is_hex, asset, quantity, fee,  txid, 1, callback);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting first transaction!');
-                            cbError('Error while trying to broadcast first transaction', cb);
+                            cbError(o, 'Error while trying to broadcast first transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing first transaction!');
-                    cbError('Error while trying to sign first transaction',cb);
+                    cbError(o,'Error while trying to sign first transaction', cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating first transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create first transaction';
-            cbError(msg, cb);
+            cbError(o,'Error while trying to create first transaction', cb);
         }
     });
 }
@@ -2268,12 +2448,12 @@ function cpMultiSecondSend(network, source, destination, memo, memo_is_hex, asse
                                     cb(txid);
                             } else {
                                 updateTransactionStatus('error', 'Error broadcasting second transaction!');
-                                cbError('Error while trying to broadcast second transaction', cb);
+                                cbError(o, 'Error while trying to broadcast second transaction', cb);
                             }
                         });
                     } else {
                         updateTransactionStatus('error', 'Error signing second transaction!');
-                        cbError('Error while trying to sign second transaction',cb);
+                        cbError(o, 'Error while trying to sign second transaction', cb);
                     }
                 });
             } else if(o.error){
@@ -2288,24 +2468,23 @@ function cpMultiSecondSend(network, source, destination, memo, memo_is_hex, asse
                     },ms);
                 } else {
                     updateTransactionStatus('error', 'Error generating second transaction!');
-                    var msg = (o.error.message) ? o.error.message : 'Error while trying to create second transaction';
-                    cbError(msg, cb);
+                    cbError(o, 'Error while trying to create second transaction', cb);
                 }
             }
         });
     } else {
         // Maxed out on tries... Throw error to user
         updateTransactionStatus('error', 'Error generating second transaction!');
-        cbError('Error while trying to generate second transaction', cb);
+        cbError(o, 'Error while trying to generate second transaction', cb);
     }
 }
 
 // Handle creating/signing/broadcasting an 'Issuance' transaction
-function cpIssuance(network, source, asset, quantity, divisible, description, destination, fee, callback){
+function cpIssuance(network, source, asset, quantity, divisible, description, destination, fee, reset, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
     updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
-    createIssuance(network, source, asset, quantity, divisible, description, destination, fee, function(o){
+    createIssuance(network, source, asset, quantity, divisible, description, destination, fee, reset, function(o){
         if(o && o.result){
             updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
@@ -2320,18 +2499,17 @@ function cpIssuance(network, source, asset, quantity, divisible, description, de
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast issuance transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast issuance transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign issuance transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign issuance transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create issuance transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create issuance transaction',cb);
         }
     });
 }
@@ -2356,18 +2534,17 @@ function cpBroadcast(network, source, text, value, feed_fee, timestamp, fee, cal
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign broadcast transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign broadcast transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create broadcast transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create broadcast transaction',cb);
         }
     });
 }
@@ -2392,18 +2569,17 @@ function cpDividend(network, source, asset, dividend_asset, quantity_per_unit, f
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign dividend transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign dividend transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create dividend transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create dividend transaction',cb);
         }
     });
 }
@@ -2428,18 +2604,17 @@ function cpCancel(network, source, tx_hash, fee, callback){
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign cancel transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign cancel transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create a cancel transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create a cancel transaction',cb);
         }
     });
 }
@@ -2465,7 +2640,7 @@ function cpDogepay(network, source, order_match_id, fee, callback){
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction', cb);
                         }
                     });
                 } else {
@@ -2501,18 +2676,17 @@ function cpOrder(network, source, get_asset, give_asset, get_quantity, give_quan
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast order transaction', cb);
+                            cbError(o, 'Error while trying to broadcast order transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign order transaction',cb);
+                    cbError(o, 'Error while trying to sign order transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create order transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create order transaction',cb);
         }
     });
 }
@@ -2537,18 +2711,17 @@ function cpBurn(network, source, quantity, fee, callback){
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign burn transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign burn transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create burn transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create burn transaction',cb);
         }
     });
 }
@@ -2573,18 +2746,17 @@ function cpDestroy(network, source, asset, quantity, memo, fee, callback){
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign destroy transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign destroy transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create destroy transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create destroy transaction',cb);
         }
     });
 }
@@ -2609,29 +2781,28 @@ function cpSweep(network, source, destination, flags, memo, fee, callback){
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign sweep transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign sweep transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create sweep transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create sweep transaction',cb);
         }
     });
 }
 
 
 // Handle creating/signing/broadcasting an 'Dispenser' transaction
-function cpDispenser(network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, callback){
+function cpDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
     updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
-    createDispenser(network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, function(o){
+    createDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, function(o){
         if(o && o.result){
             updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
@@ -2646,20 +2817,37 @@ function cpDispenser(network, source, destination, asset, escrow_amount, give_am
                                 cb(txid);
                         } else {
                             updateTransactionStatus('error', 'Error broadcasting transaction!');
-                            cbError('Error while trying to broadcast transaction. Please try again.', cb);
+                            cbError(o, 'Error while trying to broadcast transaction.', cb);
                         }
                     });
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    cbError('Error while trying to sign dispenser transaction. Please try again.',cb);
+                    cbError(o, 'Error while trying to sign dispenser transaction',cb);
                 }
             });
         } else {
             updateTransactionStatus('error', 'Error generating transaction!');
-            var msg = (o.error && o.error.message) ? o.error.message : 'Error while trying to create dispenser transaction';
-            cbError(msg, cb);
+            cbError(o, 'Error while trying to create dispenser transaction',cb);
         }
     });
+}
+
+// Handle setting some 'advanced' params for counterparty API requests
+// https://docs.counterparty.io/docs/develop/api#advanced-create_-parameters
+function setAdvancedCreateParams(data){
+    // Only apply advanced params to 'create_' requests
+    if(data.method.indexOf('create_')!=-1){
+        var o = data.params;
+        // Allow usage of unconfirmed inputs (enables daisy-chaining pending txs)
+        o.allow_unconfirmed_inputs = true;
+        // Pass forward dust preferences in satoshis
+        if(DW.DUST_SIZE_REGULAR)
+            o.regular_dust_size = parseInt(DW.DUST_SIZE_REGULAR);
+        if(DW.DUST_SIZE_MULTISIG)
+            o.multisig_dust_size = parseInt(DW.DUST_SIZE_MULTISIG);
+        data.params = o;
+    }
+    return data;
 }
 
 // Handle sending request to dogeparty servers
@@ -2670,6 +2858,8 @@ function cpRequest(network, data, callback){
         auth = $.base64.btoa(info.user + ':' + info.pass);
         // console.log('info=',info);
         // console.log('url=',url);
+    // Set any 'advanced' params for counterparty API requests
+    data = setAdvancedCreateParams(data);
     // Send request to server, process response
     $.ajax({
         type: "POST",
@@ -2688,6 +2878,7 @@ function cpRequest(network, data, callback){
     });
 }
 
+
 // Handle creating send transaction
 function createSend(network, source, destination, memo, memo_is_hex, asset, quantity, fee, callback){
     // console.log('createSend=',network, source, destination, memo, memo_is_hex, asset, quantity, fee, callback);
@@ -2698,7 +2889,6 @@ function createSend(network, source, destination, memo, memo_is_hex, asset, quan
             destination: destination,
             asset: asset,
             quantity: parseInt(quantity),
-            allow_unconfirmed_inputs: true,
             fee: parseInt(fee)
         },
         jsonrpc: "2.0",
@@ -2727,14 +2917,18 @@ function createMultiSend(network, source, destination, memo, memo_is_hex, asset,
             memo: memo,
             memo_is_hex: memo_is_hex,
             fee: parseInt(fee),
-            allow_unconfirmed_inputs: true,
             encoding: "p2sh"
         },
         jsonrpc: "2.0",
         id: 0
     };
+    // Pass forward txid if given (used in MPMA sends to reference pre-tx)
     if(txid)
         data.params.p2sh_pretx_txid = txid;
+    // Pass forward public key
+    var pubkey = getPublicKey(network, source);
+    if(pubkey)
+        data.params.pubkey = pubkey;
     cpRequest(network, data, function(o){
         if(typeof callback === 'function')
             callback(o);
@@ -2742,11 +2936,8 @@ function createMultiSend(network, source, destination, memo, memo_is_hex, asset,
 }
 
 // Handle creating issuance transaction
-function createIssuance(network, source, asset, quantity, divisible, description, destination, fee, callback){
+function createIssuance(network, source, asset, quantity, divisible, description, destination, fee, reset, callback){
     // console.log('createIssuance=', network, source, asset, quantity, divisible, description, destination, fee, callback);
-    var lock = (description=='LOCK') ? true : false;
-    if(lock)
-        description = null;
     var data = {
        method: "create_issuance",
        params: {
@@ -2756,9 +2947,9 @@ function createIssuance(network, source, asset, quantity, divisible, description
             divisible: (divisible) ? 1 : 0,
             description:  (description) ? description : null,
             transfer_destination: (destination) ? destination : null,
-            lock: lock,
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            reset: (reset) ? true : false,
+            lock: (description=='LOCK') ? true : false,
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2780,8 +2971,7 @@ function createBroadcast(network, source, text, value, feed_fee, timestamp, fee,
             value: value,
             fee_fraction: feed_fee,
             timestamp: timestamp,
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2802,8 +2992,7 @@ function createDividend(network, source, asset, dividend_asset, quantity_per_uni
             asset: asset,
             dividend_asset: dividend_asset,
             quantity_per_unit: quantity_per_unit,
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2822,8 +3011,7 @@ function createCancel(network, source, tx_hash, fee, callback){
        params: {
             source: source,
             offer_hash: tx_hash,
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2849,8 +3037,7 @@ function createOrder(network, source, get_asset, give_asset, get_quantity, give_
             // Temp fix for bug in API (https://github.com/CounterpartyXCP/counterparty-lib/issues/1025)
             fee_required: 0,
             fee_provided: 0,
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2869,8 +3056,7 @@ function createDogepay(network, source, order_match_id, fee, callback){
        params: {
             source: source,
             order_match_id: order_match_id,
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2889,8 +3075,7 @@ function createBurn(network, source, quantity, fee, callback){
        params: {
             source: source,
             quantity: parseInt(quantity),
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2911,8 +3096,7 @@ function createDestroy(network, source, asset, quantity, memo, fee, callback){
             source: source,
             asset: asset,
             quantity: parseInt(quantity),
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2935,8 +3119,7 @@ function createSweep(network, source, destination, flags, memo, fee, callback){
             destination: destination,
             flags: parseInt(flags),
             memo: memo,
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2949,8 +3132,8 @@ function createSweep(network, source, destination, flags, memo, fee, callback){
 
 
 // Handle creating dispenser transaction
-function createDispenser(network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, callback){
-    // console.log('createDispenser=',network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, callback);
+function createDispenser(network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, oracle_address, callback){
+    // console.log('createDispenser=',network, source, destination, asset, escrow_amount, give_amount, doge_amount, status, fee, oracle_address, callback);
     var data = {
        method: "create_dispenser",
        params: {
@@ -2960,8 +3143,7 @@ function createDispenser(network, source, destination, asset, escrow_amount, giv
             give_quantity: parseInt(give_amount),
             mainchainrate: parseInt(doge_amount),
             status:  parseInt(status),
-            fee: parseInt(fee),
-            allow_unconfirmed_inputs: true
+            fee: parseInt(fee)
         },
         jsonrpc: "2.0",
         id: 0
@@ -2971,6 +3153,9 @@ function createDispenser(network, source, destination, asset, escrow_amount, giv
         data.params.open_address = destination;
         data.params.status = 1;
     }
+    // Handle setting up an oracled dispenser by passing forward the oracle address
+    if(oracle_address!='')
+        data.params.oracle_address = oracle_address;
     cpRequest(network, data, function(o){
         if(typeof callback === 'function')
             callback(o);
@@ -3018,6 +3203,8 @@ function isHardwareWallet(address){
 
 // Handle signing a transaction based on what type of address it is
 function signTransaction(network, source, destination, unsignedTx, callback){
+    // Check if this transaction should include a donation
+    unsignedTx = checkDonate(network, source, destination, unsignedTx);
     if(isHardwareWallet(source)){
         signHardwareWalletTransaction(network, source, unsignedTx);
     } else {
@@ -3175,7 +3362,7 @@ function broadcastTransaction(network, tx, callback){
     if(DW.BROADCAST_LOCK==true){
         cbError('Broadcasting another transaction too quickly',callback);
         return;
-    } else {1665207
+    } else {
         DW.BROADCAST_LOCK = true;
         setTimeout(function(){ 
             DW.BROADCAST_LOCK = false;
@@ -3192,36 +3379,33 @@ function broadcastTransaction(network, tx, callback){
         complete: function(o){
             // console.log('o=',o);
             // Handle successful broadcast
-            if(o.responseJSON.tx_hash){
+            if(o && o.responseJSON && o.responseJSON.tx_hash){
                 var txid = o.responseJSON.tx_hash;
                 if(callback)
                     callback(txid);
                 if(txid)
                     console.log('Broadcasted transaction hash=',txid);
             } else {
-                console.log('failed to broadcast transaction');
-                // If the request to XChain API failed, fallback to chain.so API
-                var net  = (network=='testnet') ? 'DOGETEST' : 'DOGE';
+                // If the request to XChain API failed, fallback to blockcypher API
+                var net = (network=='testnet') ? 'test3' : 'main',
+                    url  = 'https://api.blockcypher.com/v1/doge/'+ net +'/txs/push';
                 $.ajax({
                     type: "POST",
-                    url: 'https://chain.so/api/v2/send_tx/' + net,
-                    data: { 
-                        tx_hex: tx 
-                    },
-                    dataType: 'json',
+                    url: url,
+                    data: JSON.stringify({ tx }),
                     complete: function(o){
-                        // console.log('o=',o);
-                        if(o.responseJSON.data && o.responseJSON.data.txid){
-                            var txid = o.responseJSON.data.txid;
+                        // Handle successful broadcast
+                        if(o && o.responseJSON && o.responseJSON.tx && o.responseJSON.tx.hash){
+                            var txid = o.responseJSON.tx.hash;
                             if(callback)
                                 callback(txid);
                             if(txid)
                                 console.log('Broadcast transaction tx_hash=',txid);
                         } else {
-                            cbError('Error while trying to broadcast signed transaction',callback);
+                            cbError(o, 'Error while trying to broadcast signed transaction',callback);
                         }
                     }
-                });                
+                });
             }
         }
     });
@@ -3312,18 +3496,6 @@ function dialogAbout(){
     });
 }
 
-
-// 'Donate' annoyware dialog box
-function dialogDonate(){
-    BootstrapDialog.show({
-        type: 'type-default',
-        title: '<i class="fa fa-lg fa-fw fa-doge"></i> Donate',
-        id: 'dialog-donate',
-        closeByBackdrop: false,
-        message: $('<div></div>').load('html/donate.html')
-    });
-}
-
 // 'View Address' dialog box
 function dialogViewAddress(address){
     BootstrapDialog.show({
@@ -3339,6 +3511,18 @@ function dialogViewAddress(address){
             return msg;
         },
         buttons:[{
+            label: 'Copy',
+            icon: 'fa fa-lg fa-fw fa-save',       
+            cssClass: 'btn-info', 
+            action: function(dialog){
+                // Handle copying the address to the system clipboard
+                var address = $('#viewAddress').html();
+                if(typeof nw != 'undefined'){
+                    var clipboard = nw.Clipboard.get();
+                    clipboard.set(address, 'text');
+                }
+            }
+        },{
             label: 'Cancel',
             icon: 'fa fa-lg fa-fw fa-thumbs-down',       
             cssClass: 'btn-danger', 
@@ -3423,7 +3607,7 @@ function dialogChangeAddress(){
         cssClass: 'dialog-change-address',
         closeByBackdrop: false,
         title: '<i class="fa fa-lg fa-fw fa-bitcoin"></i> Change Wallet Address',
-        message: $('<div></div>').load('html/addresses.html'),
+        message: $('<div></div>').load('html/address/change.html'),
     });
 }
 
@@ -3492,6 +3676,7 @@ function dialogPassword( enable, callback ){
                         if(isValidWalletPassword(pass)){
                             decryptWallet(pass);
                             dialog.close();
+                            DW.WALLET_LAST_UNLOCKED = Date.now();
                             dialogMessage('<i class="fa fa-lg fa-fw fa-unlock"></i> Wallet unlocked', 'Your wallet is now unlocked and available for use');
                             updateWalletOptions();
                         } else {
@@ -3572,116 +3757,20 @@ function dialogNewPassphrase(){
     });
 }
 
-// 'Import Private Key' dialog box
+// 'Import Private Keys' dialog box
 function dialogImportPrivateKey(){
+    // Make sure wallet is unlocked
+    if(dialogCheckLocked('import private keys'))
+        return;
     BootstrapDialog.show({
         type: 'type-default',
+        id: 'dialog-import-privkey',
         closeByBackdrop: false,
-        title: '<i class="fa fa-lg fa-fw fa-upload"></i> Import Private Key',
-        message: function(dialog){
-            var msg = $('<div class="center"></div>');
-            msg.append('<p>Please enter your unencrypted private key and click \'Ok\'</p>');
-            msg.append('<input type="text" class="doge-wallet-blackbox" id="importPrivateKey">');
-            return msg;
-        },
-        onshown: function(dialog){
-            $('#importPrivateKey').focus();
-        },
-        buttons:[{
-            label: 'Cancel',
-            icon: 'fa fa-lg fa-fw fa-thumbs-down',       
-            cssClass: 'btn-danger', 
-            action: function(dialog){
-                dialog.close();
-            }
-        },{
-            label: 'Ok',
-            icon: 'fa fa-lg fa-fw fa-thumbs-up',       
-            cssClass: 'btn-success', 
-            hotkey: 13,
-            action: function(dialog){
-                var val  = $('#importPrivateKey').val().trim();
-                    addr = addWalletPrivkey(val);
-                if(addr){
-                    dialogMessage('<i class="fa fa-lg fa-fw fa-info-circle"></i> Private Key Imported', 'Address ' + addr + ' has been added to your wallet.');
-                    dialog.close();
-                    updateAddressList();
-                } else {
-                    dialogMessage('<i class="fa fa-lg fa-fw fa-info-circle"></i> Error', 'Unable to import the private key you have provided!');
-                }
-            }
-        }]
+        title: '<i class="fa fa-lg fa-fw fa-key"></i> Import Private Keys',
+        message: $('<div></div>').load('html/address/import.html')
     });
 }
 
-// 'Import Watch-Only' dialog box
-function dialogImportWatchAddress(){
-    BootstrapDialog.show({
-        type: 'type-default',
-        closeByBackdrop: false,
-        title: '<i class="fa fa-lg fa-fw fa-eye"></i> Add Watch-Only Address',
-        message: function(dialog){
-            var msg = $('<div class="center"></div>');
-            msg.append('<p>Please enter the address you would like to add and click \'Ok\'</p>');
-            msg.append('<input type="text" class="doge-wallet-blackbox" id="importWatchOnlyAddress">');
-            return msg;
-        },
-        onshown: function(dialog){
-            $('#importWatchOnlyAddress').focus();
-        },
-        buttons:[{
-            label: 'Cancel',
-            icon: 'fa fa-lg fa-fw fa-thumbs-down',       
-            cssClass: 'btn-danger', 
-            action: function(dialog){
-                dialog.close();
-            }
-        },{
-            label: 'Ok',
-            icon: 'fa fa-lg fa-fw fa-thumbs-up',       
-            cssClass: 'btn-success', 
-            hotkey: 13,
-            action: function(dialog){
-                var address = $('#importWatchOnlyAddress').val(),
-                    network = 'dogemainnet',
-                    valid   = false;
-                // Check if the address is valid on mainnet
-                NETWORK  = bc.Networks[network];
-                if(DWBitcore.isValidAddress(address))
-                    valid = true;
-                // Check if address is valid on testnet
-                if(!valid){
-                    network = 'dogetestnet';
-                    NETWORK = bc.Networks[network];
-                    if(DWBitcore.isValidAddress(address))
-                        valid = true;
-                }
-                if(valid){
-                    var cnt   = 0,
-                        found = false;
-                    DW.WALLET_ADDRESSES.forEach(function(item){
-                        if(item.address==address)
-                            found = true;
-                        if(item.type==3)
-                            cnt++;
-                    });
-                    // Only add address if it does not exist in the wallet
-                    if(!found){
-                        addWalletAddress(network, address, 'Watch-Only Address #' + (cnt + 1), 3, null);
-                        // Save wallet addresses info to disk
-                        ls.setItem('walletAddresses', JSON.stringify(DW.WALLET_ADDRESSES));
-                    }
-                    // Display success message to users
-                    dialogMessage('<i class="fa fa-lg fa-fw fa-info-circle"></i> Watch-Only Address Added', 'Address ' + address + ' has been added to your wallet.');
-                    updateAddressList();
-                    dialog.close();
-                } else {
-                    dialogMessage('<i class="fa fa-lg fa-fw fa-info-circle"></i> Error', 'Invalid Address! Please enter a valid address!');
-                }
-            }
-        }]
-    });
-}
 
 // 'New Version Available' dialog box
 function dialogUpdateAvailable(version){
@@ -3735,16 +3824,35 @@ function dialogUpdateAvailable(version){
     });
 }
 
+
 // Import Hardware wallet address dialog box
 function dialogImportHardwareAddress(){
+    // Make sure wallet is unlocked
+    if(dialogCheckLocked('add new addresses'))
+        return;
     BootstrapDialog.show({
         type: 'type-default',
         id: 'dialog-import-hardware-address',
         closeByBackdrop: false,
         title: '<i class="fa fa-fw fa-lock"></i> Choose your Hardware wallet',
-        message: $('<div></div>').load('html/hardware-wallet.html'),
+        message: $('<div></div>').load('html/address/import-hardware-wallet.html'),
     });
 }
+
+// 'Add New Address' dialog box
+function dialogAddAddress(){
+    // Make sure wallet is unlocked
+    if(dialogCheckLocked('add new addresses'))
+        return;
+    BootstrapDialog.show({
+        type: 'type-default',
+        id: 'dialog-add-new-address',
+        closeByBackdrop: false,
+        title: '<i class="fa fa-fw fa-plus-circle"></i> Add New Address',
+        message: $('<div></div>').load('html/address/add.html'),
+    });
+}
+
 
 // Function to handle checking if the wallet is unlocked and displaying an error, and return false if 
 function dialogCheckLocked(action, callback){
@@ -3811,6 +3919,20 @@ function dialogIssueSupply(){
     });
 }
 
+// 'Reset Supply' dialog box
+function dialogResetSupply(){
+    // Make sure wallet is unlocked
+    if(dialogCheckLocked('reset token supply'))
+        return;
+    BootstrapDialog.show({
+        type: 'type-default',
+        id: 'dialog-reset-supply',
+        closeByBackdrop: false,
+        title: '<i class="fa fa-fw fa-refresh"></i> Reset Supply',
+        message: $('<div></div>').load('html/issuance/reset.html'),
+    });
+}
+
 // 'Transfer Ownership' dialog box
 function dialogTransferOwnership(){
     // Make sure wallet is unlocked
@@ -3863,7 +3985,7 @@ function dialogOrder(){
         id: 'dialog-create-order',
         closeByBackdrop: false,
         title: '<i class="fa fa-fw fa-exclamation-circle"></i> Confirm ' + '<span class="order-type"></span>' + ' Order?',
-        message: $('<div></div>').load('html/order.html'),
+        message: $('<div></div>').load('html/exchange/order.html'),
     });
 }
 
@@ -3877,7 +3999,7 @@ function dialogSignMessage(){
         id: 'dialog-sign-message',
         closeByBackdrop: false,
         title: '<i class="fa fa-fw fa-envelope"></i> Sign Message',
-        message: $('<div></div>').load('html/sign-message.html'),
+        message: $('<div></div>').load('html/sign/message.html'),
     });
 }
 
@@ -3891,7 +4013,7 @@ function dialogSignTransaction(){
         id: 'dialog-sign-transaction',
         closeByBackdrop: false,
         title: '<i class="fa fa-fw fa-file-text"></i> Sign Transaction',
-        message: $('<div></div>').load('html/sign-transaction.html'),
+        message: $('<div></div>').load('html/sign/transaction.html'),
     });
 }
 
@@ -3933,7 +4055,7 @@ function dialogDispenser(){
         id: 'dialog-dispenser',
         closeByBackdrop: false,
         title: '<i class="fa fa-fw fa-arrows-h"></i> Create Dispenser',
-        message: $('<div></div>').load('html/dispenser.html'),
+        message: $('<div></div>').load('html/dispensers/dispenser.html'),
     });
 }
 // 'Dispenser Buy' dialog box
@@ -3945,7 +4067,7 @@ function dialogDispenserBuy(){
         type: 'type-default',
         id: 'dialog-dispenser-buy',
         closeByBackdrop: false,
-        title: 'Buy ' + DW.DIALOG_DATA.name,
+        title: '<i class="fa fa-fw fa-btc"></i> Buy ' + DW.DIALOG_DATA.name,
         message: $('<div></div>').load('html/dispensers/dispenser-buy.html'),
     });
 }
@@ -3960,7 +4082,7 @@ function dialogSweep(){
         id: 'dialog-sweep',
         closeByBackdrop: false,
         title: '<i class="fa fa-fw fa-truck"></i> Sweep Address',
-        message: $('<div></div>').load('html/sweep.html'),
+        message: $('<div></div>').load('html/address/sweep.html'),
     });
 }
 
@@ -4005,7 +4127,7 @@ function dialogCancelOrder(){
         id: 'dialog-cancel-order',
         closeByBackdrop: false,
         title: '<i class="fa fa-fw fa-ban"></i> Confirm Cancel Order?',
-        message: $('<div></div>').load('html/cancel-order.html')
+        message: $('<div></div>').load('html/exchange/cancel.html')
     });
 }
 
@@ -4018,8 +4140,8 @@ function dialogCloseDispenser(){
         type: 'type-default',
         id: 'dialog-close-dispenser',
         closeByBackdrop: false,
-        title: '<i class="fa fa-fw fa-ban"></i> Confirm Close Dispenser?',
-        message: $('<div></div>').load('html/dispenser-close.html')
+        title: '<i class="fa fa-fw fa-close"></i> Confirm Close Dispenser?',
+        message: $('<div></div>').load('html/dispensers/close.html')
     });
 }
 
@@ -4174,25 +4296,8 @@ function dialogWelcome(){
         cssClass: 'dialog-welcome',
         closable: false,
         closeByBackdrop: false,
-        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> Welcome to DogeWallet',
-        message: function(dialog){
-            var msg = $('<div class="text-center"></div>');
-            msg.append('<img src="images/logo.png" style="width:200px;margin-bottom:20px;">');
-            msg.append('<p>DogeWallet is a free wallet for Dogecoin and Dogeparty, a protocol for decentralized financial tools.</p>')
-            msg.append( '<div class="row">' +
-                            '<div class="col-xs-12 col-sm-6">' +
-                                '<h3><i class="fa fa-lock"></i> Secure</h3>'+
-                                '<p>All encryption is handled client-side. Neither your passphrase nor any of your private information ever leaves your browser, workstation, or mobile device.</p>' +
-                                '<p>DogeWallet passphrases are highly secure, and protect your wallet from any brute force attacks. They are also rather easy to learn and hard to mistype.</p>' +
-                            '</div>' +
-                            '<div class="col-xs-12 col-sm-6">' +
-                                '<h3><i class="fa fa-cloud"></i> Simple</h3>'+
-                                '<p>With DogeWallet, your passphrase is literally your wallet, and all of your addresses and keys are generated on-the-fly when you log in.</p>' +
-                                '<p>There are no wallet files to backup or secure, and using your passphrase you can access your wallet from any trusted machine with a web browser.</p>' +
-                            '</div>' +
-                       '</div>');
-            return msg;
-        },
+        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> Welcome to FreeWallet',
+        message: $('<div></div>').load('html/welcome.html'),
         buttons:[{
             label: 'Login to Existing Wallet',
             icon: 'fa fa-lg fa-fw fa-keyboard-o pull-left',       
@@ -4215,63 +4320,56 @@ function dialogWelcome(){
 }
 
 // 'License Agreement' dialog box
-function dialogLicenseAgreement(){
+function dialogLicenseAgreement(allowClose=false){
     BootstrapDialog.show({
         type: 'type-default',
         cssClass: 'dialog-license-agreement',
         closable: false,
         closeByBackdrop: false,
         title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> License Agreement',
-        message: function(dialog){
-            var msg = $('<div></div>');
-            msg.append('<p>You must read and accept the following agreement in order to use DogeWallet:</p>')
-            msg.append( '<div class="well">' +
-                            '<h3>1. GRANT OF LICENSE</h3>' +
-                            '<p><b>1.1.</b> Subject to the terms and conditions contained within this end user agreement (the “Agreement“), dogeparty.net grants the “User” (or “you”) a non-exclusive, personal, non-transferable right to use the Services on your personal computer or other device that accesses the Internet, namely dogeparty.net, DogeWallet Mobile, DogeWallet Desktop, and Dogeparty federated nodes (together, the “Services“). By clicking the “I Agree“ button if and where provided and/or using the Service, you consent to the terms and conditions set forth in this Agreement.</p>' +
-                            '<p><b>1.2.</b> The Services are not for use by (i) individuals under 18 years of age, (ii) individuals under the legal age of majority in their jurisdiction and (iii) individuals accessing the Services from jurisdictions from which it is illegal to do so. Counterwallet.io and Counterwallet federated nodes are unable to verify the legality of the Services in each jurisdiction and it is the User\'s responsibility to ensure that their use of the Services is lawful. dogeparty.net, DogeWallet Mobile, and DogeWallet Desktop are neither banks nor regulated financial services. Operators do not have access to the Bitcoins stored on the platform, instead dogeparty.net, DogeWallet Mobile, and DogeWallet Desktop simply provide a means to access Bitcoins, Dogeparty (XDP), and other digital assets recorded on the Bitcoin blockchain. Bitcoin private keys are encrypted using the BIP32 Hierarchical Deterministic Wallet algorithm such that Dogeparty.net, DogeWallet Mobile, and DogeWallet Desktop cannot access or recover Bitcoins, Dogeparty (XDP), or other digital assets in the event of lost or stolen password. </p>' +
-                            '<h3>2. NO WARRANTIES.</h3>' +
-                            '<p><b>2.1.</b> DOGEPARTY, DOGEPARTY.NET, AND DOGEPARTY FEDERATED NODES DISCLAIM ANY AND ALL WARRANTIES, EXPRESSED OR IMPLIED, IN CONNECTION WITH THE SERVICES WHICH ARE PROVIDED TO THE USER “AS IS“ AND NO WARRANTY OR REPRESENTATION IS PROVIDED WHATSOEVER REGARDING ITS QUALITY, FITNESS FOR PURPOSE, COMPLETENESS OR ACCURACY.</p>' +
-                            '<p><b>2.2.</b> REGARDLESS OF BEST EFFORTS, WE MAKE NO WARRANTY THAT THE SERVICES WILL BE UNINTERRUPTED, TIMELY OR ERROR-FREE, OR THAT DEFECTS WILL BE CORRECTED.</p>' +
-                            '<h3>3. YOUR REPRESENTATIONS AND WARRANTIES</h3>' +
-                            '<p>Prior to your use of the Services and on an ongoing basis you represent, warrant, covenant and agree that:</p>' +
-                            '<p><b>3.1.</b> your use of the Services is at your sole option, discretion and risk, as neither dogeparty.net, Dogeparty federated nodes, nor any individuals affiliated with the DogeWallet or Dogeparty teams can be held responsible for lost or stolen funds;</p>' +
-                            '<p><b>3.2.</b> you are solely responsible for satisfying any and all applicable legal rules and/or obligations, to include the requirements of your local tax authorities, arising from your use of the Services in a given jurisdiction; </p>' +
-                            '<p><b>3.3.</b> the telecommunications networks and Internet access services required for you to access and use the Services are entirely beyond the control of the Services and neither DogeWallet nor the Services shall bear any liability whatsoever for any outages, slowness, capacity constraints or other deficiencies affecting the same; and</p>' +
-                            '<p><b>3.4.</b> you are at least 18 years of age.</p>' +
-                            '<h3>4. PROHIBITED USES</h3>' +
-                            '<p><b>4.1</b> A user must not use the Services in any way that causes, or may cause, damage to the website or impairment of the availability or accessibility of the website; or in any way which is unlawful, illegal, fraudulent or harmful, or in connection with any unlawful, illegal, fraudulent or harmful purpose or activity. </p>' +
-                            '<h3>5. BREACH</h3>' +
-                            '<p><b>5.1.</b> Without prejudice to any other rights, if a User breaches in whole or in part any provision contained herein, DogeWallet and/or the Services reserve the right to take such action as they deem fit, including terminating this Agreement or any other agreement in place with the User and/or taking legal action against such User.</p>' +
-                            '<p><b>5.2.</b> You agree to fully indemnify, defend and hold harmless the Services and their operators and agents from and against all claims, demands, liabilities, damages, losses, costs and expenses, including legal fees and any other charges whatsoever, irrespective of cause, that may arise as a result of: (i) your breach of this Agreement, in whole or in part; (ii) violation by you of any law or any third party rights; and (iii) use by you of the Services.</p>' +
-                            '<h3>6. LIMITATION OF LIABILITY</h3>' +
-                            '<p><b>6.1.</b> Under no circumstances, including negligence, shall DogeWallet nor the Services be liable for any special, incidental, direct, indirect or consequential damages whatsoever (including, without limitation, damages for loss of business profits, business interruption, loss of business information, or any other pecuniary loss) arising out of the use (or misuse) of the Services even if DogeWallet and/or the Services had prior knowledge of the possibility of such damages.</p>' +
-                            '<h3>7. AMENDMENT</h3>' +
-                            '<p>DogeWallet and the Services reserve the right to update or modify this Agreement or any part thereof at any time or otherwise change the Services without notice and you will be bound by such amended Agreement upon publication. Therefore, we encourage you check the terms and conditions contained in the version of the Agreement in force at such time. Your continued use of the Service shall be deemed to attest to your agreement to any amendments to the Agreement.</p>' +
-                            '<h3>8. GOVERNING LAW</h3>' +
-                            '<p>The Agreement and any matters relating hereto shall be governed by, and construed in accordance with, the laws of the state of California and the United States. You irrevocably agree that, subject as provided below, the courts of California shall have exclusive jurisdiction in relation to any claim, dispute or difference concerning the Agreement and any matter arising therefrom and irrevocably waive any right that it may have to object to an action being brought in those courts, or to claim that the action has been brought in an inconvenient forum, or that those courts do not have jurisdiction. Nothing in this clause shall limit the right of the Services to take proceedings against you in any other court of competent jurisdiction, nor shall the taking of proceedings in any one or more jurisdictions preclude the taking of proceedings in any other jurisdictions, whether concurrently or not, to the extent permitted by the law of such other jurisdiction.</p>' +
-                            '<h3>9. SEVERABILITY</h3>' +
-                            '<p>If a provision of this Agreement is or becomes illegal, invalid or unenforceable in any jurisdiction, that shall not affect the validity or enforceability in that jurisdiction of any other provision hereof or the validity or enforceability in other jurisdictions of that or any other provision hereof.</p>' +
-                            '<h3>10. ASSIGNMENT</h3>' +
-                            '<p>DogeWallet and the Services reserve the right to assign this agreement, in whole or in part, at any time without notice. The User may not assign any of his/her rights or obligations under this Agreement.</p>' +
-                            '<h3>11. MISCELLANEOUS</h3>' +
-                            '<p><b>11.1.</b> No waiver by DogeWallet nor by the Services of any breach of any provision of this Agreement (including the failure of DogeWallet and/or the Services to require strict and literal performance of or compliance with any provision of this Agreement) shall in any way be construed as a waiver of any subsequent breach of such provision or of any breach of any other provision of this Agreement.</p>' +
-                            '<p><b>11.2.</b> Nothing in this Agreement shall create or be deemed to create a partnership, agency, trust arrangement, fiduciary relationship or joint venture between you the User and DogeWallet, nor between you the User and the Services, to any extent.</p>' +
-                            '<p><b>11.3.</b> This Agreement constitutes the entire understanding and agreement between you the User and DogeWallet and the Services regarding the Services and supersedes any prior agreement, understanding, or arrangement between the same.</p>' +
-                '</div>');
-            msg.append('<div class="checkbox" id="dialog-license-agreement-confirm"><label><input type="checkbox" id="dialog-license-agreement-checkbox"> I have <u><i><b>read and accept</b></i></u> the above License Agreement.</label></div>');
-            return msg;
-        },
+        message: $('<div></div>').load('html/license.html'),
         buttons:[{
             label: 'Ok',
             icon: 'fa fa-lg fa-fw fa-thumbs-up',
             cssClass: 'btn-success', 
             hotkey: 13,
             action: function(dialog){
-                if($('#dialog-license-agreement-checkbox').is(':checked')){
-                    ls.setItem('licenseAgreementAccept',1);
+                if(allowClose){
                     dialog.close();
                 } else {
-                    $('#dialog-license-agreement-confirm').effect( "shake", { times: 3, direction: 'up' }, 1000);
+                    if($('#dialog-license-agreement-checkbox').is(':checked')){
+                        ls.setItem('licenseAgreementAccept',1);
+                        dialog.close();
+                    } else {
+                        $('#dialog-license-agreement-confirm').effect( "shake", { times: 3, direction: 'up' }, 1000);
+                    }
+                }
+            }
+        }]
+    });
+}
+
+
+// 'Automatic Donation System (ADS) Agreement' dialog box
+function dialogDonateAgreement(){
+    BootstrapDialog.show({
+        type: 'type-default',
+        cssClass: 'dialog-donate-agreement',
+        closable: false,
+        closeByBackdrop: false,
+        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> Automatic Donation System (ADS) Agreement',
+        message: $('<div></div>').load('html/donate.html'),
+        buttons:[{
+            label: 'Ok',
+            icon: 'fa fa-lg fa-fw fa-thumbs-up',
+            cssClass: 'btn-success', 
+            hotkey: 13,
+            action: function(dialog){
+                if($('#dialog-donate-agreement-checkbox').is(':checked')){
+                    ls.setItem('donateAgreementAccept',1);
+                    dialog.close();
+                } else {
+                    $('#dialog-donate-agreement-confirm').effect( "shake", { times: 3, direction: 'up' }, 1000);
                 }
             }
         }]
@@ -4387,14 +4485,6 @@ function displayContextMenu(event){
                 nw.Shell.openExternal(url);
             }
         }));
-        mnu.append(new nw.MenuItem({ 
-            label: 'View on Chain.so',
-            click: function(){ 
-                var net = (DW.WALLET_NETWORK==2) ? 'DOGETEST' : 'DOGE',
-                    url  = 'https://chain.so/tx/' + net + '/' + tx;
-                nw.Shell.openExternal(url);
-            }
-        }));
         menu = mnu;
     }
 
@@ -4435,14 +4525,12 @@ function displayContextMenu(event){
     if(el.length!=0){
         var mnu    = new nw.Menu(),
             market = el.attr('data-market');
-        if(market!='XDP' && market!='DOGE'){
-            mnu.append(new nw.MenuItem({ 
-                label: 'Remove Market',
-                click: function(){ 
-                    removeMarket(market);
-                }
-            }));
-        }
+        mnu.append(new nw.MenuItem({ 
+            label: 'Remove Market',
+            click: function(){ 
+                removeMarket(market);
+            }
+        }));
         menu = mnu;
     }    
 
@@ -4473,7 +4561,7 @@ function displayContextMenu(event){
     if(el.length!=0){
         var mnu   = new nw.Menu(),
             asset = el.attr('data-asset');
-        if(asset!='XDP' && asset!='my-dispensers'){
+        if(asset!='my-dispensers'){
             mnu.append(new nw.MenuItem({ 
                 label: 'Remove Watchlist',
                 click: function(){ 
@@ -5118,7 +5206,7 @@ function updateMarketAssetInfo(market){
             if(o.asset){
                 // Set quick reference flag divisibiliy
                 DW.ASSET_DIVISIBLE[o.asset] = o.divisible;
-                // FW['ASSET' + (idx+1) + '_DIVISIBLE'] = o.divisible;
+                // DW.'ASSET' + (idx+1) + '_DIVISIBLE'] = o.divisible;
                 var fmt    = (o.divisible) ? '0,0.00000000' : '0,0',
                     lock   = $(sel + ' .supply-lock'),
                     icon   = $(sel + ' .asset-icon'),
@@ -5337,11 +5425,10 @@ function removeDispenserWatchlist(asset){
     // Handle removing from base pairs 
     if(DW.BASE_DISPENSERS.indexOf(asset)!=-1){
         // Remove market from DW.BASE_DISPENSERS
-        DW.BASE_DISPENSERS.splice(DW.BASE_DISPENSERS.indexOf(DW.BASE_DISPENSERS),1);
+        DW.BASE_DISPENSERS.splice(DW.BASE_DISPENSERS.indexOf(asset),1);
         // Save data to localStorage
         ls.setItem('walletDispensers', JSON.stringify(DW.BASE_DISPENSERS));
-    }
-}
+    }}
 
 // Handle updating all the dispensers lists
 function updateDispensersLists(force){
@@ -5367,7 +5454,7 @@ function updateDispensersView(id, query, force){
                 return;
             var asset = (o.asset_longname || o.asset) + '|' + o.asset,
                 name  = (!isAddr) ? o.source : asset;
-            data.push([name, o.escrow_quantity, o.give_quantity, o.give_remaining, o.satoshirate, o.status, o.tx_hash, asset, o.source]);
+            data.push([name, o.escrow_quantity, o.give_quantity, o.give_remaining, o.satoshi_price, o.status, o.tx_hash, asset, o.source]);
         });
         try {
             var table = $(tid + ' table.datatable').DataTable(DW.DISPENSERS_DATATABLE_CONFIG);
@@ -5407,7 +5494,10 @@ function updateDispensersList(query, page, callback){
         limit = 100,
         count = (page==1) ? 0 : ((page-1)*limit),
         url   = DW.XCHAIN_API + '/api/dispensers/' + query ;
-    $.getJSON(url + '/' + page + '/' + limit, function(o){
+    // Only display open dispensers for asset watchlists
+    if(!isValidAddress(query))
+        url += '?status=open';
+    $.getJSON(url, function(o){
         // Bail out if we encountered any error (prevents looping requests)
         if(o.error)
             return;
@@ -5497,4 +5587,852 @@ function hex2string(hexx) {
     for (var i = 0; (i < hex.length && hex.substr(i, 2) !== '00'); i += 2)
         str += String.fromCharCode(parseInt(hex.substr(i, 2), 16));
     return str;
+}
+
+// Function to handle creating/updating the oracle list
+function updateOracleList(){
+    ['mainnet','testnet'].forEach(function(net){
+        var coin = (net=='testnet') ? 'tdoge' : 'doge';
+        $.getJSON('https://xcp.finance/api/' + coin, function(o){
+            DW.ORACLES[net] = o.data;
+        });
+    });
+}
+
+// Function to handle getting a list of oracles for a given network
+function getOracleList(network){
+    var network = (network) ? network : DW.WALLET_NETWORK,
+        net = (network==2||network=='testnet') ? 'testnet' : 'mainnet';
+    return DW.ORACLES[net];
+}
+
+// Function to get oracle info using a given oracle address
+function getOracleInfo(address){
+    var info    = false,
+        oracles = getOracleList();
+    oracles.forEach(function(oracle){
+        if(oracle.address==address)
+            info = oracle;
+    });
+    return info;
+}
+
+// Function to handle creating/updating the donation list
+function updateDonationList(){
+    $.getJSON('https://freewallet.io/json/dogewallet-donation-causes.json', function(o){
+        if(o && o.mainnet)
+            DW.DONATE = o;
+    });
+}
+
+// Function to handle getting a list of donation causes for a given network
+function getDonationList(network){
+    var network = (network) ? network : DW.WALLET_NETWORK,
+        net     = (network==2||network=='testnet') ? 'testnet' : 'mainnet';
+    return DW.DONATE[net];
+}
+
+// Function to remove html from string
+function stripHtml(html){
+    var tmp = document.createElement("DIV");
+    tmp.innerHTML = html;
+    return tmp.textContent || tmp.innerText || "";
+}
+
+// Function to handle converting any JSON to use the CIP25 standard
+// https://github.com/CounterpartyXCP/cips/blob/master/cip-0025.md
+function legacyJsonToCip25(o){
+    var json = {},
+        o    = (o) ? o : {};
+    // Pass basic asset info fields forward
+    ['asset','description','image','website','pgpsig','name'].forEach(function(name){ if(o[name]) json[name]=o[name]; });
+    // Owner fields
+    json.owner = {};
+    if(o.owner)
+        ['name','title','organization'].forEach(function(name){ if(o.owner[name]) json.owner[name]=o.owner[name]; });
+    // Contacts Data
+    json.contacts = (typeof o.contacts === 'object') ? o.contacts : [];
+    if(o.contact_address_line_1)
+        json.contacts.push({ type: 'address', data: o.contact_address_line_1 + ' ' + o.contact_address_line_2 + ', ' +  o.contact_city + ', ' +  o.contact_state_province + ' ' +  o.contact_postal_code + ' ' + o.contact_country });
+    if(o.contact_email1)
+        json.contacts.push({ type: 'email', data: o.contact_email1 });
+    if(o.contact_email2)
+        json.contacts.push({ type: 'email', data: o.contact_email2 });
+    if(o.contact_phone)
+        json.contacts.push({ type: 'phone', data: o.contact_phone });
+    if(o.contact_fax)
+        json.contacts.push({ type: 'fax', data: o.contact_fax });
+    if(o.website_alternate1)
+        json.contacts.push({ type: 'url', data: o.website_alternate1 });
+    if(o.website_alternate2)
+        json.contacts.push({ type: 'url', data: o.website_alternate2 });
+    // Category Data
+    json.categories = (typeof o.categories === 'object') ? o.categories : [];
+    if(o.category)
+        json.categories.push({ type: 'main', data: o.category });
+    if(o.subcategory)
+        json.categories.push({ type: 'sub', data: o.subcategory });
+    if(o.category_custom)
+        json.categories.push({ type: 'other', data: o.category_custom });
+    // Social Media
+    json.social = (typeof o.social === 'object') ? o.social : [];
+    if(o.website_social_facebook)
+        json.social.push({ type: 'facebook', data: o.website_social_facebook });
+    if(o.website_social_github)
+        json.social.push({ type: 'github', data: o.website_social_github });
+    if(o.website_social_twitter)
+        json.social.push({ type: 'twitter', data: o.website_social_twitter });
+    if(o.website_social_reddit)
+        json.social.push({ type: 'reddit', data: o.website_social_reddit });
+    if(o.website_social_linkedin)
+        json.social.push({ type: 'linkedin', data: o.website_social_linkedin });
+    // Images
+    json.images = (typeof o.images === 'object') ? o.images : [];
+    // Add 'image' to images array if it does not already exist
+    if(o.image){
+        var found = false;
+        json.images.forEach(function(item){
+            if(item.data==o.image)
+                found = true;
+        });
+        if(!found)
+            json.images.push({ type: 'icon', data: o.image });
+    }
+    if(o.image_large)
+        json.images.push({ type: 'large', name: o.image_title, data: o.image_large });
+    if(o.image_large_hd)
+        json.images.push({ type: 'hires', name: o.image_title, data: o.image_large_hd });
+    // Audio
+    json.audio = (typeof o.audio === 'object') ? o.audio : [];
+    if(o.audio!='' && typeof o.audio === 'string')
+        json.audio.push({ type: o.audio.slice(-3), data: o.audio });
+    // Video
+    json.video = (typeof o.video === 'object') ? o.video : [];
+    if(o.video!='' && typeof o.video === 'string')
+        json.video.push({ type: o.video.slice(-3), data: o.video });
+    // Files
+    json.files = (typeof o.files === 'object') ? o.files : [];
+    // DNS
+    json.dns = (typeof o.dns === 'object') ? o.dns : [];
+    // Handle trying to extact image/video/audio data from the html description
+    var urls   = String(o.description).match(/(((https?:\/\/)|(www\.))[^\s]+)/g),
+        images = ['gif','jpg','jpeg','gif','png'],
+        audios = ['m4a','mp3','wav'],
+        videos = ['mp4','mov','wmv'];
+    // Loop through any extracted urls and try to detect the content type and add to the appropriate array
+    if(urls){
+        urls.forEach(function(str){
+            var [url, qs] = String(str).split('?'),
+                url   = url.replace('"',''),
+                arr   = url.split('.'),
+                ext   = arr[arr.length-1].toLowerCase(),
+                found = false;
+            // Extract any images
+            if(images.indexOf(ext)!=-1 && json.images){
+                json.images.forEach(function(item){
+                    if(item.data==url)
+                        found = true;
+                });
+                if(!found){
+                    var type = (/hires/.test(url)!=-1) ? 'hires' : 'standard';
+                    json.images.push({ type: type, data: url });
+                }
+            }
+            // Extract any videos
+            if(videos.indexOf(ext)!=-1 && json.videos){
+                json.videos.forEach(function(item){
+                    if(item.data==url)
+                        found = true;
+                });
+                if(!found)
+                    json.videos.push({ type: ext, data: url });
+            }
+            // Extract any audio
+            if(audios.indexOf(ext)!=-1 && json.audio){
+                json.audio.forEach(function(item){
+                    if(item.data==url)
+                        found = true;
+                });
+                if(!found)
+                    json.audio.push({ type: ext, data: url });
+            }
+        });
+    }
+    if(o.html)
+        json.html = o.html;
+    if(json.description){
+        // Loop through description and detect attempts to inject HTML and javascript into description
+        var filters = ['<script', '<iframe', 'onload'],
+            desc    = String(json.description).replace('&lt;','<').replace('&gt;','>'),
+            html    = false;
+        filters.forEach(function(filter){
+            var re = new RegExp(filter, 'ig');
+            if(re.test(desc)){
+                console.log('matched on filter =',filter);
+                html = true;
+            }
+        });
+        if(html)
+            json.html = json.description;
+        // Remove any attempts to inject HTML or javascript via description field
+        var desc = String(json.description).replace('&lt;','<').replace('&gt;','>').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,'').trim();
+        json.description = stripHtml(desc);
+    }
+    // console.log('--- Begin CIP25 JSON ---');
+    // console.log(JSON.stringify(json));
+    // console.log('--- End CIP25 JSON ---');
+    return json;
+}
+
+// Function to handle returning specific record type from array
+function getArrayItemByType(arr, type){
+    rec = false;
+    arr.forEach(function(item){
+        if(item.type==type)
+            rec = item
+    });
+    return rec;
+}
+
+// Function to handle returning specific record type from array
+function getArrayItemByType(arr, type){
+    rec = false;
+    arr.forEach(function(item){
+        if(item.type==type)
+            rec = item
+    });
+    return rec;
+}
+
+
+// Function to normalize JSON and display enhanced asset info
+function showExtendedAssetInfo(json){
+    json = legacyJsonToCip25(json);
+    cachedJson = json;          // Cache JSON so we can easily reference it again when needed
+    showExtendedInfo(json);
+    showAssetArtwork(json);
+}
+
+
+ // Function to handle displaying any enhanced asset information (CIP25)
+function showExtendedInfo(o){
+    // Basic Asset Information
+    if(o.name)          $('#assetName').text(o.name).parent().show();
+    if(o.website){
+        var url = getValidUrl(o.website);
+        if(isValidUrl(url)){
+            $('#assetWebsite').html('<a href="' + url + '" target="_blank">' + url + '</a>').parent().show();        
+        } else {
+            $('#assetWebsite').text(o.website).parent().show();
+        }
+    }
+    if(o.pgpsig){
+        var url = o.pgpsig;
+        if(isValidUrl(url)){
+            $('#pgpSignature').html('<a href="' + url + '" target="_blank">' + url + '</a>').parent().show();        
+        } else {
+            $('#pgpSignature').text(o.pgpsig).parent().show();
+        }
+    }   
+    // Extract Categories info from categories array
+    if(o.categories.length){
+        var main  = getArrayItemByType(o.categories, 'main'),
+            sub   = getArrayItemByType(o.categories, 'sub'),
+            other = getArrayItemByType(o.categories, 'other');
+        if(main)  $('#assetCategory').text(main.data).parent().show();
+        if(sub)   $('#assetSubCategory').text(sub.data).parent().show();
+        if(other) $('#assetCategoryOther').text(other.data).parent().show();
+    }
+    if(o.description){
+        var json  = /^(.*).json/i,
+            http  = /^http:\/\//,
+            https = /^https:\/\//,
+            desc  = o.description,
+            el    = $('#assetExtendedDescription');
+        if(json.test(desc)||http.test(desc)||https.test(desc)){
+            var arr  = desc.split(';'),
+                html = '<a href="' + getValidUrl(arr[0]) + '" target="_blank">' + arr[0] + '</a>';
+            if(arr[1])
+                html += ';' + arr[1];
+            el.html(html);
+        } else {
+            el.text(desc);
+        }
+        el.parent().show();
+        el.parent().parent().show();
+    }
+    if(o.name||o.website||o.pgpsig||o.description||main||sub||other)
+        $('#additionalAssetInfo').show();
+    // Owner Information
+    if(o.owner.name)         $('#ownerName').text(o.owner.name).parent().show();
+    if(o.owner.title)        $('#ownerTitle').text(o.owner.title).parent().show();
+    if(o.owner.organization) $('#ownerOrganization').text(o.owner.organization).parent().show();
+    if(o.owner.name||o.owner.title||o.owner.organization)
+        $('#ownerInfo').show();
+    // Contacts
+    if(o.contacts.length){
+        var table = $('#contactInfo table tbody');
+        table.empty();
+        o.contacts.slice(0,10).forEach(function(item){
+            var type = item.type.toLowerCase(),
+                html = '<tr><th>' + item.type + '</th><td>' + item.data + '</td></tr>';
+            if(type=='email')
+                html = '<tr><th>' + item.type + '</th><td><a href="mailto:'+ item.data + '">' + item.data + '</a></td></tr>'
+            if(type=='phone'||type=='fax')
+                html = '<tr><th>' + item.type + '</th><td><a href="tel:'+ item.data + '">' + item.data + '</a></td></tr>'
+            if(type=='url')
+                html = '<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>'
+            table.append(html);
+        });
+        $('#contactInfo').show();
+    }
+    // Social Media
+    if(o.social.length){
+        var table = $('#socialInfo table tbody');
+        table.empty();
+        o.social.slice(0,10).forEach(function(item){
+            table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+        });
+        $('#socialInfo').show();
+    }
+    // Images
+    if(o.images.length){
+        var table = $('#imagesInfo table tbody'),
+            html  = false;
+        table.empty();
+        o.images.slice(0,10).forEach(function(item){
+            if(item.data.substring(0,4)=='data')
+                return;
+            html = '<tr><th>' + item.type;
+            if(item.size)
+                html += ' (' + item.size + ')';
+            html += '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>';
+            table.append(html);
+        });
+        if(html)
+            $('#imagesInfo').show();
+    }
+    // Audio
+    if(o.audio.length){
+        var table = $('#audioInfo table tbody');
+        table.empty();
+        o.audio.slice(0,10).forEach(function(item){
+            table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+        });
+        $('#audioInfo').show();
+    }
+    // Video
+    if(o.video.length){
+        var table = $('#videoInfo table tbody');
+        table.empty();
+        o.video.slice(0,10).forEach(function(item){
+            table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+        });
+        $('#videoInfo').show();
+    }
+    // Files
+    if(o.files.length){
+        var table = $('#fileInfo table tbody');
+        table.empty();
+        o.files.slice(0,10).forEach(function(item){
+            table.append('<tr><th>' + item.type + '</th><td><a href="'+ getValidUrl(item.data) + '" target="_blank">' + item.data + '</a></td></tr>');
+        });
+        $('#fileInfo').show();
+    }
+    // DNS
+    if(o.dns.length){
+        var table = $('#dnsInfo table tbody');
+        table.empty();
+        table.append('<tr><th>Type</th><th>Host</th><th>Value</th></tr>')
+        o.dns.slice(0,10).forEach(function(item){
+            var html = '<tr><td>' + item.type + '</td><td>' + item.host + '</td><td>' + item.value + '</td></tr>';
+            if(item.type.toLowerCase()=='btcdns')
+                html = '<tr><td>' + item.type + '</td><td colspan="2"><a href="'+ getValidUrl(item.value) + '" target="_blank">' + item.value + '</a></td></tr>';
+            table.append(html);
+        });
+        $('#dnsInfo').show();
+    }
+    if(o.description)
+        $('#additionalInfoNotAvailable').hide();
+    // Handle 
+    var icon = false;
+    if(o.images.length){
+        // First try to find 48x48 icon
+        o.images.forEach(function(item){
+            if(!icon && item.type=='icon' && item.size=='48x48')
+                icon = item.data;
+        });
+        // If we couldn't find 48x48 icon, use the first icon in the list
+        o.images.forEach(function(item){
+            if(!icon && item.type=='icon')
+                icon = item.data;
+        });
+    }
+    // Use older "image" param if we couldn't find icon in the CIP25 images array
+    if(!icon && o.image)
+        icon = i.image;
+    // Handle displaying asset icon image
+    if(icon)
+        setAssetIcon(icon);
+}
+
+// Hande displaying any artwork associated with the asset
+function showAssetArtwork(o){
+    var audio = false,
+        video = false,
+        image = false,
+        title = false;
+    if(o){
+        // Extract image from images array
+        if(o.images.length){
+            var large    = getArrayItemByType(o.images, 'large'),
+                standard = getArrayItemByType(o.images, 'standard'),
+                first    = o.images[0].data;
+            image = (large) ? large.data : (standard) ? standard.data : first.data;
+            title = (large) ? large.name : (standard) ? standard.name : first.name;
+        }
+        // Extract audio from audio array
+        if(o.audio.length){
+            var m4a   = getArrayItemByType(o.audio, 'm4a'),
+                mp3   = getArrayItemByType(o.audio, 'mp3'),
+                wav   = getArrayItemByType(o.audio, 'wav'),
+                first = o.audio[0].data;
+            audio = (m4a) ? m4a.data : (mp3) ? mp3.data : (wav) ? wav.data : first.data;
+            if(!title)
+                title = (m4a) ? m4a.name : (mp3) ? mp3.name : (wav) ? wav.name : first.name;
+        }
+        // Extract video from videos array
+        if(o.video.length){
+            var mp4   = getArrayItemByType(o.video, 'mp4'),
+                mov   = getArrayItemByType(o.video, 'mov'),
+                wmv   = getArrayItemByType(o.video, 'wmv'),
+                first = o.video[0].data;
+            video = (mp4) ? mp4.data : (mov) ? mov.data : (wmv) ? wmv.data : first.data;
+            if(!title)
+                title = (mp4) ? mp4.name : (mov) ? mov.name : (wmv) ? wmv.name : first.name;
+        }
+    }
+    // Try to decode asset description using one of the CIP25 defined formats
+    if(!audio && !video && !image){
+        // Cleanup description a bit to remove leading/trailing spaces and some funky characters
+        var desc = String(o.description).trim().replace('\u001e','');
+        if(/^(imgur|youtube|soundcloud|stamp)/i.test(desc)){
+            // service/info;title format parsing
+            var [url, title, xtra] = desc.split(';'),
+                [service, code]    = url.split('/'),
+                title              = (xtra) ? title + ';' + xtra: title,
+                service            = service.toLowerCase();
+            // stamp:base64_data format parsing (assume it is an image)
+            if(/^stamp:/i.test(desc)){
+                service = 'stamp';
+                code    = desc.replace(/^stamp:/i,'');
+            }
+            // Cleanup some bad formats
+            if(service=='imgur.com')
+                service = 'imgur';
+            // Handle decoding some common characters
+            if(title)
+                title = title.replace('&#39;',"'");
+            if(service=='imgur')
+                image = 'https://i.imgur.com/' + code;
+            if(service=='youtube')
+                video = 'https://www.youtube.com/embed/' + code;
+            if(service=='soundcloud')
+                audio = 'https://api.soundcloud.com/tracks/' + code;
+            if(service=='stamp')
+                image = 'data:image/png;base64,' + code;
+            // console.log('service, code, title', service, code, title);
+        }
+    }
+    // Handle processing descriptions that include urls
+    if(!audio && !video && !image){
+        if(/http/.test(desc) || /i\.imgur\.com/.test(desc)){
+            var [url, qs] = desc.split('?'), // Ignore any querystring data
+                arr = url.split('.'),
+                url = desc,
+                ext = arr[arr.length-1].toLowerCase();
+            if(url.indexOf('http')==-1)
+                url = 'http://' + url;
+            // Handle images
+            var images = ['gif','jpg','jpeg','gif','png'],
+                audios = ['m4a','mp3','wav'],
+                videos = ['mp4','mov','wmv'];
+            if(images.indexOf(ext)!=-1)
+                image = url;
+            if(audios.indexOf(ext)!=-1)
+                audio = url;
+            if(videos.indexOf(ext)!=-1)
+                video = url;
+        }
+    }
+    // Handle supporting NFTs (Non-Fungible Tokens) from various projects
+    if(isNFT(o.asset)){
+        var info  = getNFTInfo(o.asset),
+            title = (title && title!='') ? title : false,
+            html = '';
+        // Loop through projects array and build out list of projects card is associated with
+        info.projects.forEach(function(project){
+            html += '<div class="alert alert-success bold text-center" style="margin: 15px 15px 15px 15px;">';
+            html += '    This is an official card in the ';
+            if(project.site){
+                html += '<a href="' + project.site + '" target="_blank">' + project.project + '</a> project';
+            } else {
+                html += project.project;
+            }
+            html += '</div>';
+        });
+        // Force display image to use image from project (overrides JSON)
+        // Except in the case of 'stamp', since image is already correct
+        if(service!='stamp')
+            image = DW.XCHAIN_API + '/img/cards/' + info.image;
+        $('#officialCard').html(html).show();
+    }
+    // If we have a title, display it
+    if(title){
+        var title = title.replace('&#39;',"'");
+        $('#artwork-information').show();
+        $('#artwork-title').text(title).parent().show();
+    }
+    if(image||audio||video){
+        $('#additionalInfoNotAvailable').hide();
+        $('#digitalArtInfo').show();
+        if(image){
+            $('#artwork-header').show();
+            var load = $('#artwork-loader'),
+                img  = $('#artwork-image');
+            // Hide image and show loading indicator
+            img.hide();  
+            load.show();
+            // Request the remote image via jquery (second request will have image cached already)
+            $.get(image, function(data){
+                // Convert XML object to string
+                if(typeof data=='object')
+                    data = xmlToString(data);
+                var re1 = /^<\?xml /,
+                    re2 = /^<svg /,
+                    re3 = /script/gi,
+                    svg = (re1.test(data)||re2.test(data));
+                // If we detected an SVG with <script> tag... ignore it
+                if(svg && re3.test(data)){
+                    $('#digitalArtInfo').hide();
+                } else {
+                    if(service=='stamp'){
+                        if(svg)
+                            image = 'data:image/svg+xml;base64,' + code;
+                        img = $('#artwork-stamp');
+                        img.off('error'); // Remove any existing error handlers on this image
+                        // If we get error while trying to load image, hide image 
+                        img.on('error', function(e){
+                            $('#additionalInfoNotAvailable').show();
+                            $('#digitalArtInfo').hide();
+                            img.hide();
+                        });
+                    } 
+                    // When image is done loading, show image and hide loading indicator
+                    img.one("load", function(){
+                        load.hide();
+                        img.show();
+                    });
+                    img.attr('src',image); 
+                }
+            });
+        }
+        if(video){
+            $('#video-header').show();
+            var el  = $('#video-wrapper'),
+                arr = video.split('.'),
+                ext = arr[arr.length-1].toLowerCase();
+            if(/youtube/.test(video)){
+                el   = $('#video-wrapper-youtube'),
+                html = '<iframe src="' + video + '" frameborder="0" allowfullscreen class="embedded-video"></iframe>';
+            } else {
+                var type = '';
+                if(ext=='mp4') type = 'video/mp4';
+                if(ext=='wmv') type = 'video/x-ms-asf';
+                if(ext=='mov') type = 'video/quicktime'
+                html = '<video draggable="false" controls playsinline="" autoplay="" loop="" class="img-fluid img-responsive" width="100%" style="max-width:400px"><source type="' + type+ '" src="' + video + '"></video>';
+            }
+            el.html(html).show()
+        }
+        if(audio){
+            $('#audio-header').show();
+            var el = $('#audio-wrapper');
+            if(/soundcloud/.test(audio)){
+                el = $('#audio-wrapper-soundcloud');
+                html = '<iframe src="https://w.soundcloud.com/player/?url=' + audio + '" frameborder="0" allowfullscreen class="soundcloud-audio" style="width:100%;"></iframe>';
+            } else {
+                html = '<audio src="' + audio + '" autoplay="true" controls loop preload></audio>';
+            }
+            el.html(html).show();
+        }
+
+    }
+    if(o.html){
+        $('#custom-content-header').show();
+        $('#custom-content-wrapper').show();
+    }
+    // console.log('audio=',audio);
+    // console.log('video=',video);
+    // console.log('image=',image);
+    // console.log('title=',title);
+}
+
+// Handle loading remote image icon
+function setAssetIcon(image){
+    var url = image;
+    // var url = relay + image;
+    // var url = DW.XCHAIN_API + '/relay?url=' + image;
+    $.get( url, function(data){
+        if(String(data).trim().length)
+            $('#assetIcon').attr('src', 'data:image/png;base64,' + data);
+    });
+}
+
+// Function to handle converting a base64 string to a hex
+function base64ToHex(str) {
+    const raw = atob(str);
+    let result = '';
+    for (let i = 0; i < raw.length; i++) {
+        const hex = raw.charCodeAt(i).toString(16);
+        result += (hex.length === 2 ? hex : '0' + hex);
+    }
+    return result;
+}
+
+// Handle checking if an asset is an NFT
+function isNFT(asset){
+    var asset_upper = String(asset).toUpperCase();
+    if(DW.NFT_CARDS[asset] || DW.NFT_CARDS[asset_upper])
+        return true;
+    return false;
+}
+
+// Handle getting the image for an NFT
+function getNFTImage(asset){
+    if(DW.NFT_CARDS[asset])
+        return asset + "." + DW.NFT_CARDS[asset];
+    var asset_upper = String(asset).toUpperCase();
+    if(DW.NFT_CARDS[asset_upper])
+        return asset_upper + "." + DW.NFT_CARDS[asset_upper];
+    return false    
+}
+
+// Handle returning info on an NFT (asset, image, project, website, etc)
+function getNFTInfo(asset){
+    var info = {
+        asset: asset,
+        image: getNFTImage(asset),
+        projects: []
+    };
+    DW.NFT_DATA.forEach(function(project){
+        if(project.cards.indexOf(info.image)!=-1){
+            info.projects.push({
+                project: project.name,
+                logo: project.logo,
+                site: project.site
+            })
+        }
+    });
+    return info;
+}
+
+// Handle updating basic wallet information via a call to xchain.io/api/network
+function updateNFTInfo( force ){
+    var last = ls.getItem('nftInfoLastUpdated') || 0,
+        ms   = 21600000; // 6 hours
+    if((parseInt(last) + ms)  <= Date.now() || force ){
+        // BTC/USD Price
+        $.getJSON( DW.XCHAIN_API + '/json/nfts.json', function( data ){
+            if(data){
+                DW.NFT_DATA = data;
+                ls.setItem('nftInfo',JSON.stringify(data));
+                ls.setItem('nftInfoLastUpdated', Date.now());
+                updateNFTCards();
+            }
+        });
+    }
+}
+
+// Handld building out the DW.NFT_CARDS assoc array
+function updateNFTCards(){
+    // Loop through NFT_DATA array and build out NFT_CARDS array
+    DW.NFT_DATA.forEach(function(project){
+        project.cards.forEach(function(card){
+            var a = card.split('.'),
+                b = a.slice(0, -1);
+            name = b.join('.');
+            ext  = a[a.length - 1];
+            DW.NFT_CARDS[name] = ext;
+        });
+    });    
+}
+
+// Handle confirming issuance (and any hidden data encoding costs) with the user
+function confirmIssuance(title, msg, network, source, asset, quantity, divisible, description, destination, fee, reset, successCallback){
+    var title = (title) ? title : '<i class="fa fa-lg fa-fw fa-question-circle"></i> Confirm  Issuance?',
+        msg   = (msg) ? msg : '';
+    updateTransactionStatus('pending', 'Checking data encoding fees on issuance...');
+    createIssuance(network, source, asset, quantity, divisible, description, destination, fee, reset, function(o){
+        if(o && o.result){
+            // Clear status message 
+            updateTransactionStatus('clear', '');
+            //decode the transaction
+            var tx   = bitcoinjs.Transaction.fromHex(o.result),
+                doge = getAssetPrice('DOGE',true),
+                num  = 0,
+                usd  = 0;
+            // Loop through outputs and sum up values
+            tx.outs.slice(0, -1).forEach(function(out){
+                num += out.value;
+            });
+            // Confirm the action with the user
+            if(num){
+                num = numeral(num * 0.00000001).format('0,0.00000000');
+                usd = numeral(num * doge.price_usd).format('0,0.00');
+                msg += '<br><br><div class="alert alert-warning" role="alert">This will include an additional fee of ' + num + ' DOGE ($' + usd + ') <br>needed to encode the data to the Dogecoin (DOGE) blockchain.</div>';
+            }
+            dialogConfirm(title, '<center>' + msg + '</center>', false, true, function(){
+                cpIssuance(network, source, asset, quantity, divisible, description, destination, fee, reset, function(tx){
+                    if(tx)
+                        successCallback(tx);
+                });
+            });
+        } else {
+            updateTransactionStatus('error', 'Error communicating with the Dogeparty API!');
+            cbError(o,'Error communicating with the Dogeparty API');
+        }
+    });
+}
+
+// Handle converting data into an XML string
+function xmlToString(xmlData) { 
+    var xmlString;
+    if(window.ActiveXObject){
+        // Internet Exploder
+        xmlString = xmlData.xml;
+    } else {
+        // Mozilla, Firefox, Opera, etc.
+        xmlString = (new XMLSerializer()).serializeToString(xmlData);
+    }
+    return xmlString;
+}   
+
+// Handle getting an address from an output script and returning it (if any)
+function getAddressFromOutputScript(script){
+    var address = false;
+    try {
+        address = bitcoinjs.address.fromOutputScript(script);
+    } catch (e){
+        // console.log('caught error=',e);
+    }
+    return address;
+}
+
+// Handle checking if we should donate on a transaction, if so, add the donation output
+// Remove this when counterparty-lib supports `custom_outputs` feature
+// https://github.com/CounterpartyXCP/counterparty-lib/issues/1214
+function checkDonate(network, source, destination, unsignedTx){
+    console.log('checkDonate=',network, source, destination, unsignedTx);
+    var net    = (network=='testnet') ? 'testnet' : 'mainnet', 
+        donate = false,
+        change = false;
+    // Increase the donation tx counter
+    DW.DONATE_COUNT++;
+    // If the donation system is enabled, check if we should donate on this tx
+    if(DW.DONATE_STATUS!=0){
+        if(DW.DONATE_STATUS==1 ||
+          (DW.DONATE_STATUS==25 && DW.DONATE_COUNT==4) ||
+          (DW.DONATE_STATUS==50 && [1,3].indexOf(DW.DONATE_COUNT)!=-1) ||
+          (DW.DONATE_STATUS==75 && [1,2,3].indexOf(DW.DONATE_COUNT)!=-1))
+            donate = true;
+    }
+    // Reset donation tx counter
+    if(DW.DONATE_COUNT==4)
+       DW.DONATE_COUNT = 0;
+    // Save the current donation count
+    ls.setItem('donateCount',DW.DONATE_COUNT);
+    // If this is a tx the user wants to donate on, add the donation amount to DW.DONATE_TOTAL
+    if(donate){
+        DW.DONATE_TOTAL = parseInt(DW.DONATE_TOTAL) + parseInt(DW.DONATE_AMOUNT);
+        ls.setItem('donateTotal',DW.DONATE_TOTAL);
+    }
+    // Only trigger actual donation once donation total is over the trigger amount
+    if(DW.DONATE_TOTAL < DW.DONATE_TRIGGER)
+        donate = false;
+    // Handle updating the transaction to include a donation output
+    if(donate){
+        // Hardcode testnet donation address
+        var donate_address = (DW.WALLET_NETWORK==2) ? 'niV5qKrqwsJyhR7SVrPnpuz2TC3aDKTWgU' : DW.DONATE_ADDRESS;
+        // Convert destination to array if not already
+        if(typeof(destination)==='string')
+            destination = [destination];
+        // Check if any of the addresses are bech32
+        var sourceIsBech32 = isBech32(source),
+            destIsBech32   = destination.reduce((p, x) => p || isBech32(x), false),
+            donateisBech32 = isBech32(DW.DONATE_ADDRESS),
+            hasAnyBech32   = sourceIsBech32 || destIsBech32 || donateisBech32;
+        // Handle updating transaction
+        if(hasAnyBech32){
+            // Handle Segwit/Bech32 transactions
+            var netName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet',
+                tx      = bitcoinjs.Transaction.fromHex(unsignedTx);
+            // Find change output / value
+            tx.outs.forEach(function(output,idx){
+                // Find last output with matching source address (change output)
+                if(getAddressFromOutputScript(output.script)==source && idx==tx.outs.length-1){
+                    // Make sure we have enough change to cover the donation and return more than dust (546 sats)
+                    if(output.value > DW.DONATE_TOTAL && (output.value - DW.DONATE_TOTAL) >= 546)
+                        change = output.value;
+                }
+            });
+            // If we found a change address, add our donation output
+            if(change){
+                // Add our donation output
+                tx.addOutput(bitcoinjs.address.toOutputScript(donate_address), DW.DONATE_TOTAL);
+                // Rearrange the tx so the change output is last again
+                tx.outs.splice(tx.outs.length-2,0,tx.outs.pop());
+                // Reduce change amount by donation amount
+                tx.outs.forEach(function(output,idx){
+                    if(getAddressFromOutputScript(output.script)==source && idx==tx.outs.length-1)
+                        output.value = output.value - DW.DONATE_TOTAL;
+                });
+                // Convert the transaction back into a hex string
+                unsignedTx = tx.toHex();
+            }
+        } else {
+            // Handle Normal transactions
+            var netName = (network=='testnet') ? 'dogetestnet' : 'dogemainnet';
+            NETWORK = bc.Networks[netName];
+            var tx = bc.Transaction(unsignedTx);
+            // Find change output / value
+            tx.outputs.forEach(function(output,idx){
+                // Find last output with matching source address (change output)
+                if(DWBitcore.extractAddressFromTxOut(output)==source && idx==tx.outputs.length-1){
+                    // Make sure we have enough change to cover the donation and return more than dust (0.01 DOGE)
+                    if(output.satoshis > DW.DONATE_TOTAL && (output.satoshis - DW.DONATE_TOTAL) >= 1000000)
+                        change = output.satoshis;
+                }
+            });
+            // If we found a change address, add our donation output
+            if(change){
+                // Add our donation output
+                tx.to(donate_address, DW.DONATE_TOTAL);
+                // Rearrange the tx so the change output is last again
+                tx.outputs.splice(tx.outputs.length-2,0,tx.outputs.pop());
+                // Reduce change amount by donation amount
+                tx.outputs.forEach(function(output,idx){
+                    if(DWBitcore.extractAddressFromTxOut(output)==source && idx==tx.outputs.length-1)
+                        output.satoshis = output.satoshis - DW.DONATE_TOTAL;
+                });
+                // Convert the transaction back into a hex string
+                unsignedTx = tx.toString();
+            }
+        }
+    }
+    // Handle resetting DW.DONATE_TOTAL to 0 now that a donation has been included in a transaction
+    if(donate && change){
+        DW.DONATE_TOTAL = 0;
+        ls.setItem('donateTotal',DW.DONATE_TOTAL);
+    }
+    return unsignedTx;
 }

@@ -39,9 +39,8 @@
                     <li><a href="#" id="balances"><i class="fa fa-lg fa-user"></i> Balances</a></li>
                     <li><a href="#" id="history"><i class="fa fa-lg fa-list"></i> History</a></li>
                     <li><a href="#" id="exchange"><i class="fa fa-lg fa-exchange"></i> Exchange</a></li>
-                    <!-- <li><a href="#" id="betting"><i class="fa fa-lg fa-bullseye"></i> Betting</a></li> -->
                     <li><a href="#" id="dispensers"><i class="fa fa-lg fa-arrows-h"></i> Dispensers</a></li>
-
+                    <li><a href="#" id="betting"><i class="fa fa-lg fa-bullseye"></i> Betting</a></li>
                 </ul>
                 <ul class="nav navbar-nav navbar-right">
                     <li class="dropdown">
@@ -55,11 +54,13 @@
                             <li><a href="#" id="action-broadcast-message"><i class="fa fa-lg fa-bullhorn"></i> Broadcast Message</a></li>
                             <li><a href="#" id="action-burn"><i class="fa fa-lg fa-fire"></i> Burn Funds</a></li>
                             <li><a href="#" id="action-dispenser"><i class="fa fa-lg fa-arrows-h"></i> Create Dispenser</a></li>
+                            <li><a href="#" id="action-close-dispenser"><i class="fa fa-lg fa-close"></i> Close Dispenser</a></li>
                             <li><a href="#" id="action-cancel-order"><i class="fa fa-lg fa-ban"></i> Cancel Order</a></li>
                             <div id="header-token-actions" class="dropdown-menu-header">Token Actions</div>
                             <li><a href="#" id="action-asset-create"><i class="fa fa-lg fa-plus-circle"></i> Create a Token</a></li>
                             <li><a href="#" id="action-asset-description"><i class="fa fa-lg fa-edit"></i> Change Description</a></li>
                             <li><a href="#" id="action-asset-supply"><i class="fa fa-lg fa-bank"></i> Issue Supply</a></li>
+                            <li><a href="#" id="action-asset-reset"><i class="fa fa-lg fa-refresh"></i> Reset Supply</a></li>
                             <li><a href="#" id="action-asset-destroy"><i class="fa fa-lg fa-trash"></i> Destroy Supply</a></li>
                             <li><a href="#" id="action-asset-transfer"><i class="fa fa-lg fa-exchange"></i> Transfer Ownership</a></li>
                             <li><a href="#" id="action-asset-lock"><i class="fa fa-lg fa-lock"></i> Lock Token Supply</a></li>
@@ -70,8 +71,10 @@
                         <ul class="dropdown-menu" role="menu">
                             <div class="dropdown-menu-header">Address Actions</div>
                             <li><a href="#" id="action-change-address"><i class="fa fa-lg fa-edit"></i> Change Address</a></li>
-                            <li><a href="#" id="action-view-address"><i class="fa fa-lg fa-qrcode"></i> View Address</a></li>
+                            <li><a href="#" id="action-add-address"><i class="fa fa-lg fa-plus-circle"></i> Add New Address</a></li>
+                            <li><a href="#" id="action-import-privkey"><i class="fa fa-lg fa-key"></i> Import Private Keys</a></li>
                             <li><a href="#" id="action-sweep"><i class="fa fa-lg fa-truck"></i> Sweep Address</a></li>
+                            <li><a href="#" id="action-view-address"><i class="fa fa-lg fa-qrcode"></i> View Address</a></li>
                             <li><a href="#" id="action-view-privkey"><i class="fa fa-lg fa-user-secret"></i> View Private Key</a></li>
                         </ul>
                     </li>
@@ -148,10 +151,17 @@
     <script type="text/javascript" src="js/throttle-debounce-fn.min.js"></script>
     <script type="text/javascript" src="js/jquery.base64.js"></script>
     <script type="text/javascript" src="js/jquery.dataTables.min.js"></script>
+    <script type="text/javascript" src="js/jquery.lazy.min.js"></script>
     <script type="text/javascript" src="js/mnemonic.js"></script>
     <script type="text/javascript" src="js/sanitizer.js"></script>
     <script type="text/javascript" src="js/buffer.min.js"></script>
     <script type="text/javascript" src="js/bip39.min.js"></script>
+
+    <!-- BTNS / XCP Transaction Decoder -->
+    <script type="text/javascript" src="js/BTNS-Decoder/sha256.js"></script>
+    <script type="text/javascript" src="js/BTNS-Decoder/xcp.js"></script>
+    <script type="text/javascript" src="js/BTNS-Decoder/btns.js"></script>
+    <script type="text/javascript" src="js/BTNS-Decoder/transaction.js"></script>
 
     <!-- Bitcore includes -->
     <script type="text/javascript" src="js/bitcoinjs-lib.min.js"></script>
@@ -211,7 +221,7 @@
 
             // Setup listener on lock/unlock button
             // buffer the click event by 100ms to prevent issues when users click item multiple times
-            $('#lock').click($.debounce(00,function(e){
+            $('#lock').click($.debounce(100,function(e){
                 if(parseInt(ls.getItem('walletEncrypted'))==1){
                     if(ss.getItem('wallet')){
                         // Lock wallet
@@ -242,13 +252,16 @@
 
             // Handle clicks on items in the action menu
             $('#action-change-address').click($.debounce(100,function(e){       dialogChangeAddress();      }));
+            $('#action-add-address').click($.debounce(100,function(e){          dialogAddAddress();         }));
             $('#action-view-address').click($.debounce(100,function(e){         dialogViewAddress();        }));
             $('#action-sweep').click($.debounce(100,function(e){                dialogSweep();              }));
+            $('#action-import-privkey').click($.debounce(100,function(e){       dialogImportPrivateKey();   }));
             $('#action-view-privkey').click($.debounce(100,function(e){         dialogViewPrivateKey();     }));
             $('#action-send').click($.debounce(100,function(e){                 dialogSend();               }));
             $('#action-asset-create').click($.debounce(100,function(e){         dialogCreateToken();        }));
             $('#action-asset-description').click($.debounce(100,function(e){    dialogChangeDescription();  }));
             $('#action-asset-supply').click($.debounce(100,function(e){         dialogIssueSupply();        }));
+            $('#action-asset-reset').click($.debounce(100,function(e){          dialogResetSupply();        }));
             $('#action-asset-destroy').click($.debounce(100,function(e){        dialogDestroy();            }));
             $('#action-asset-transfer').click($.debounce(100,function(e){       dialogTransferOwnership();  }));
             $('#action-asset-lock').click($.debounce(100,function(e){           dialogLockSupply();         }));
@@ -260,6 +273,8 @@
             $('#action-burn').click($.debounce(100,function(e){                 dialogBurn();               }));
             $('#action-dispenser').click($.debounce(100,function(e){            dialogDispenser();          }));
             $('#action-cancel-order').click($.debounce(100,function(e){         dialogCancelOrder();        }));
+            $('#action-close-dispenser').click($.debounce(100,function(e){      dialogCloseDispenser();     }));
+
 
             // Detect when running in nwjs and setup some additional listeners
             if(is_nwjs()){

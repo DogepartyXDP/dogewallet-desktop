@@ -25,21 +25,8 @@
             <input type="text" class="form-control" id="token-name" name="name" placeholder="Token Name" data-minlength="4" required>
         </div>
     </div>
-    <div class="form-group">
-        <label class="col-sm-3 control-label text-left" for="token-amount">
-            Quantity
-            <a href="#" data-toggle="tooltip" title='This is the amount of supply you would like to issue' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
-        </label>
-        <div class="col-sm-9">
-            <input type="text" class="form-control pull-left" name="amount"  id="token-amount" placeholder="0.00000000" style="width:224px" value="0">
-            <div class="input-group pull-right" style="width:180px;margin-left:14px;">
-                <span class="input-group-addon">Divisible</span>
-                <select id="asset-divisible" name="divisible" class="selectpicker">
-                    <option>Yes</option>
-                    <option>No</option>
-                </select>
-            </div>
-        </div>
+    <div class="form-group" id="token-amount-field">
+        <!-- Token Amount Field -->
     </div>
     <div class="form-group" id="token-description-field">
         <!-- Token Description Field -->
@@ -61,6 +48,7 @@ $(document).ready(function(){
     // Load any field content
     $('#tx-fee-field').load('html/fields/tx-fee.html');
     $('#source-address-field').load('html/fields/source-address.html');
+    $('#token-amount-field').load('html/fields/amount-token.html');
     $('#token-description-field').load('html/fields/token-description.html');
 
     // Stash current price info on DOGE and XCP
@@ -83,20 +71,6 @@ $(document).ready(function(){
 
     },100);
 
-    // Make sure token amount stays in correct format
-    $('#token-amount').change(function(e){
-        var amt = String($(this).val()).replace(/[^0-9.]/g,''),
-            fmt = ($('#asset-divisible').val()=='Yes') ? '0,0.00000000' : '0,0';
-        $(this).val(numeral(amt).format(fmt));
-    });
-
-    // Make sure token amount stays in correct format
-    $('#asset-divisible').change(function(e){
-        var amt = String($('#token-amount').val()).replace(/[^0-9.]/g,''),
-            fmt = ($(this).val()=='Yes') ? '0,0.00000000' : '0,0';
-        $('#token-amount').val(numeral(amt).format(fmt));
-    });
-
     // Handle updating asset name when token type changes
     $('#token-type').change(function(e){
         var val = $(this).val();
@@ -113,10 +87,6 @@ $(document).ready(function(){
 
     // Make selectpicker dropdowns work
     $('#token-type').selectpicker({ width: '100%' });
-    $('#asset-divisible').selectpicker();
-
-    // Trigger change on token amount so we format it correctly
-    $('#token-amount').change();
 
     // Submit form when user 'Create Token' button
     $('#btn-submit').click($.debounce(100,function(e){
@@ -159,7 +129,7 @@ $(document).ready(function(){
                                 if(data.owner!=DW.WALLET_ADDRESS){
                                     dialogMessage('Notice', '<center><p>The name <b><i>' + parent + '</i></b> is already registered to address ' + data.owner + '</p>' +
                                                   '<p>You may still purchase <b><i>' + name + '</b></i> from the current owner if they have listed it for sale.</p>' + 
-                                                  '<a href="https://coindaddy.io/search?network=xcp&q=' + name + '" class="btn btn-success" target="_blank"><i class="fa fw-coindaddy pull-left" style="top:0px"></i> Check if this token is listed for sale on CoinDaddy</a></center>', true);
+                                                  '<a href="https://coindaddy.io/search?network=xdp&q=' + name + '" class="btn btn-success" target="_blank"><i class="fa fw-coindaddy pull-left" style="top:0px"></i> Check if this token is listed for sale on CoinDaddy</a></center>', true);
                                 }
                             }
                         });
@@ -179,7 +149,7 @@ $(document).ready(function(){
                                 // Notify user asset is registered to another address
                                 dialogMessage('Notice', '<center><p>The name <b><i>' + name + '</i></b> is already registered to address ' + o.owner + '</p>' +
                                               '<p>You may still purchase this token from the current owner if they have listed it for sale.</p>' + 
-                                              '<a href="https://coindaddy.io/search?network=xcp&q=' + name + '" class="btn btn-success" target="_blank"><i class="fa fw-coindaddy pull-left" style="top:0px"></i> Check if ' + name + ' is for sale on CoinDaddy</a></center>', true);
+                                              '<a href="https://coindaddy.io/search?network=xdp&q=' + name + '" class="btn btn-success" target="_blank"><i class="fa fw-coindaddy pull-left" style="top:0px"></i> Check if ' + name + ' is for sale on CoinDaddy</a></center>', true);
                         }
                     }
                 }
@@ -213,7 +183,7 @@ $(document).ready(function(){
         } else if(type=='Named'){
             // Verify length
             if(vals.name.length<4 || vals.name.length>12)
-                errors.push('Token name must be between 4 and 14 characters!');
+                errors.push('Token name must be between 4 and 12 characters!');
             // Verify only contains A-Z
             if(!/^[A-Z]+$/i.test(vals.name))
                 errors.push('Token name must only contain <b><i>upper-case alphabetical</i></b> characters!');
@@ -259,33 +229,36 @@ $(document).ready(function(){
             errors.push('You must enter a fee which is greater than 0.00000000!');
             $('#fee-amount').closest('.form-group').addClass('has-error has-danger');
         }
-        // Verify that the user has enough XCP balance to cover the fee
-
+        // Strip asterisks from JSON and data URLs
+        var desc  = vals.description,
+            regex = /\;/g;
+        if(desc.substr(0,1)=='*' && (desc.substr(-4)=='json' || regex.test(desc))){
+            vals.description = desc.replace(/\*/g,'').trim();
+            $('#token-description').val(vals.description);
+        }
+        // Verify token description is 10,000 characters or less
+        var maxlength = 10000;
+        if(vals.description.length > maxlength){
+            errors.push('Maximum token description length is ' + numeral(maxlength).format('0,0') + ' characters!');
+            $('#token-description').closest('.form-group').addClass('has-error has-danger');
+        }
         // Display any error message
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
-            // Callback to run after broadcasting send
-            var doneCb = function(tx){
-                if(tx){
-                    dialogClose('dialog-create-token');
-                    dialogMessage('<i class="fa fa-lg fa-plus-circle"></i> Token Creation Successful', '<center>Your issuance has been broadcast to the network and your token should be created shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
-                }
-            }
-            // Callback to run if user confirms action
-            var confirmCb = function(){
-                var network   = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-                    amt_sat   = (vals.amount.indexOf('.')!=-1) ? numeral(vals.amount).multiply(100000000).value() : numeral(vals.amount).value(),
-                    fee_sat   = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
-                    divisible = (vals.divisible=='Yes') ? true : false;
-                cpIssuance(network, vals.source, vals.name, amt_sat, divisible, vals.description, null, fee_sat, doneCb);
-            }
-            // Confirm the action with the user
-            var title = '<i class="fa fa-lg fa-fw fa-question-circle"></i> Confirm  Issuance?',
-                fmt   = ($('#asset-divisible').val()=='Yes') ? '0,0.00000000' : '0,0',
-                msg   = 'Issue a token named <b>' + vals.name + '</b> with a inital supply of ' + numeral(vals.amount).format(fmt) + '?';
-            dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
+            var network   = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                amt_sat   = getSatoshis(vals.amount),
+                fee_sat   = getSatoshis(vals['fee-amount']),
+                divisible = (vals.divisible=='Yes') ? true : false,
+                title     = '<i class="fa fa-lg fa-fw fa-question-circle"></i> Confirm  Issuance?',
+                fmt       = ($('#asset-divisible').val()=='Yes') ? '0,0.00000000' : '0,0',
+                msg       = 'Issue a token named <b>' + vals.name + '</b> with a inital supply of ' + numeral(vals.amount).format(fmt) + '?';
+            // Confirm the issuance details with the user
+            confirmIssuance(title, msg, network, vals.source, vals.name, amt_sat, divisible, vals.description, null, fee_sat, false, function(tx){
+                dialogClose('dialog-create-token');
+                dialogMessage('<i class="fa fa-lg fa-plus-circle"></i> Token Creation Successful', '<center>Your issuance has been broadcast to the network and your token should be created shortly.' +
+                              '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+            });
         }
     })
 

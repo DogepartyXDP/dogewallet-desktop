@@ -1,0 +1,157 @@
+<!-- Close Dispenser Form -->
+<form class="form-horizontal" id="close-dispenser-form" data-toggle="validator" role="form">
+    <input type="hidden" name="asset">
+    <div class="col-xs-12 text-center bold" style="margin-bottom: 20px; display: none;" id="confirm-close-message">
+        Are you sure you want to close this <span class="asset-name"></span> dispenser?
+    </div>
+    <!-- Dispenser Information -->
+    <div class="form-group" style="display: none;" id="tx-hash-wrapper">
+        <label class="col-sm-3 control-label text-left order-type">
+            Tx Hash
+            <a href="#" data-toggle="tooltip" title='This is the transaction hash of the dispenser which you would like to close' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
+        </label>
+        <div class="col-sm-9">
+            <input type="text" class="form-control" name="tx_hash" id="tx_hash" placeholder="Dispenser Transaction Hash" autocomplete="off" required>
+        </div>
+    </div>
+    <div class="form-group" id="tx-fee-field">
+        <!-- Transaction Fee Field -->
+    </div>
+    <div id="transaction-status"></div>
+    <div class="text-right">
+        <div id="btn-cancel" class="btn btn-danger margin-right-5"><i class="fa fa-lg fa-fw fa-thumbs-down"></i> No</div>
+        <div id="btn-submit" class="btn btn-success"><i class="fa fa-lg fa-fw fa-thumbs-up"></i> Yes</div>
+    </div>
+</form>
+
+
+<script>
+$(document).ready(function(){
+
+    // Update Dialog box with asset name
+    $('#close-dispenser-form .asset-name').text(DW.DIALOG_DATA.name);
+    $('#close-dispenser-form [name="asset"]').val(DW.DIALOG_DATA.asset);
+
+    // Load any field content
+    $('#tx-fee-field').load('html/fields/tx-fee.html');
+
+    // Delay initializing some fields to give things a chance to load
+    setTimeout(function(){
+
+        // Initialize any tooltips
+        $('[data-toggle="tooltip"]').tooltip({ 
+            html: true,
+            placement: 'bottom'
+        }); 
+
+    },100);
+
+    // Handle showing the dispenser transaction hash field if we dont already know the asset
+    if(!DW.DIALOG_DATA.asset){
+        $('#tx-hash-wrapper').show();
+    } else {
+        $('#confirm-close-message').show();
+    }
+
+    // Clear the dialog data
+    DW.DIALOG_DATA = {};
+
+    // Submit form if user clicks 'Submit' button
+    $('#btn-submit').click($.debounce(100,function(e){
+        $('#close-dispenser-form').submit();
+    }));
+
+    // Hide the form if users clicks 'Cancel' button
+    $('#btn-cancel').click($.debounce(100,function(e){
+        dialogClose('dialog-close-dispenser');
+    }));
+
+    // Flag to indicate if we are in the middle of looking up transaction details
+    DW.PENDING_TX_LOOKUP = false;
+
+    // Handle looking up dispenser information based on tx hash
+    $('#tx_hash').change(function(e){
+        var errors = [];
+        var val = $(this).val();
+        if(val.length==64){
+            DW.PENDING_TX_LOOKUP = true;
+            $.getJSON( DW.XCHAIN_API + '/api/tx/' + val, function(data){
+                if(data.tx_type=='Dispenser'){
+                    if(data.status==0){
+                        if(data.source==DW.WALLET_ADDRESS){
+                            var name = (data.asset_longname!='') ? data.asset_longname : data.asset;
+                            $('#close-dispenser-form .asset-name').text(name);
+                            $('#close-dispenser-form [name="asset"]').val(data.asset);
+                            $('#tx-hash-wrapper').hide();
+                            $('#confirm-close-message').show();
+                        } else {
+                            errors.push('Transaction hash points to a dispenser on a different address!');
+                        }
+                    } else if(data.status=='Unconfirmed'){
+                        errors.push('Transaction hash is for an unconfirmed dispenser that is not yet open!');
+                    } else {
+                        errors.push('Transaction hash is for a dispenser that is already closed!');
+                    }
+                } else {
+                    errors.push('Transaction hash is not for a dispenser!');
+                }
+                DW.PENDING_TX_LOOKUP = false;
+                // Display any error message
+                if(errors.length){
+                    $('#tx_hash').val('');
+                    dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
+                }
+            });
+        }
+    })
+
+    // Handle form validation and displaying any errors
+    $('#close-dispenser-form').validator().on('submit', function(e){
+        // prevent form submission
+        e.preventDefault();
+        // Get object with form values
+        var vals   = array2Object($(this).serializeArray()),
+            errors = [];
+        console.log('vals=',vals);
+        // Remove error indicators from any fields 
+        $('.form-group').removeClass('has-error has-danger');
+
+        // Ignore form submissions if we are in the middle of looking up tx details
+        if(DW.PENDING_TX_LOOKUP)
+            return;
+
+        // Verify we have an asset set
+        if(vals.asset==''){
+            errors.push('You must enter a dispenser transaction hash!');
+            $('#tx_hash').closest('.form-group').addClass('has-error has-danger');
+        }
+
+        // Verify we have valid fee amount 
+        if(numeral(vals['fee-amount']).value()==0){
+            errors.push('You must enter a fee which is greater than 0.00000000!');
+            $('#fee-amount').closest('.form-group').addClass('has-error has-danger');
+        }
+
+        // Display any error message
+        if(errors.length){
+            dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
+        } else {
+            // Callback to run after broadcasting send
+            var doneCb = function(tx){
+                if(tx){
+                    dialogClose('dialog-close-dispenser');
+                    dialogMessage('<i class="fa fa-lg fa-close"></i> Close Dispenser Successful', '<center>Your dispenser transaction has been sent to the network and should be included to a block shortly.' +
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                }
+            }
+            var network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                source   = DW.WALLET_ADDRESS,
+                status   = 10, // 10 = Close Dispenser
+                fee_sat  = getSatoshis(vals['fee-amount']);
+            cpDispenser(network, source, source, vals.asset, 0, 0, 0, status, fee_sat, '', doneCb);
+        }
+    })
+
+
+});
+</script>

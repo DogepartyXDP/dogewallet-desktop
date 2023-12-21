@@ -1,0 +1,179 @@
+<!-- Dispenser Buy Form -->
+<form class="form-horizontal" id="dispenser-buy-form" data-toggle="validator" role="form">
+    <div class="form-group" id="token-name-select-field">
+        <!-- Token Name Field  -->
+    </div>
+    <div class="form-group" id="amount-field">
+        <!-- Amount Field -->
+    </div>
+    <div class="form-group" id="btc-amount-field">
+        <!-- BTC Amount Field -->
+    </div>
+    <div class="form-group" id="tx-fee-field">
+        <!-- Transaction Fee Field -->
+    </div>
+    <div class="alert alert-info" role="alert"><strong><center>Dispenser purchases should always use the HIGH fee setting</center></strong></div>
+
+    <div id="transaction-status"></div>
+    <div class="text-right">
+        <div id="btn-submit" class="btn btn-success"><i class="fa fa-lg fa-fw fa-btc"></i> Buy Now</div>
+        <div id="btn-cancel" class="btn btn-danger margin-right-5"><i class="fa fa-lg fa-fw fa-ban"></i> Cancel</div>
+    </div>
+</form>
+
+
+<script>
+
+// Callback to run after broadcasting send
+function doneCb(tx){
+    if(tx){
+        dialogClose('dialog-dispenser-buy');
+        dialogMessage('<i class="fa fa-lg fa-truck"></i> Dispenser Buy Successful', '<center>Your buy transaction has been sent to the network and should be included to a block shortly.' +
+                      '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+    }
+}
+
+// Confirm with user that they understand the purchase amount is less than 1.0
+// This should hopefully prevent some users from losing funds because they are not aware they are purchasing less than 1 token
+function dialogWarnGiveQuantityAmount(vals){
+    var asset = DW.DIALOG_DATA.name;
+    var message = '<div class="alert alert-danger" role="alert"><strong><center>You are attempting to make a BTC purchase from a dispenser which is selling less than 1 ' + asset + ' token per dispense!<br><br>Please make sure this is an action that you would like to perform, as it may result in you getting less ' + asset + ' tokens from the dispenser than expected!</center></strong></div>';
+    message += '<center>Are you sure you want to continue purchasing from this dispenser?'
+    dialogConfirm('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Warning', message, false, true, function(){
+        checkDispenserQuantity(vals);
+    });
+}
+
+// Confirm with user that they understand the purchase amount is less than 1.0
+// This should hopefully prevent some users from losing funds because they are not aware they are purchasing less than 1 token
+function dialogWarnEmptyDispenser(vals){
+    var message = '<div class="alert alert-danger" role="alert"><strong><center>This dispenser already has pending dispense transactions which will empty this dispenser!<br><br>Are you sure you want to make this payment, as it may result in you losing your BTC funds and getting no token dispensed from the dispenser!</center></strong></div>';
+    message += '<center>Are you sure you want to continue purchasing from this dispenser?'
+    dialogConfirm('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Warning', message, false, true, function(){
+        confirmDispenserPayment(vals);
+    });
+}
+
+// Handle confirming action with user
+function confirmDispenserPayment(vals){
+    // Callback to run if user confirms action
+    var confirmCb = function(){
+        var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+            source  = DW.WALLET_ADDRESS,
+            amt_sat = getSatoshis(vals['btc-amount']),
+            fee_sat = getSatoshis(vals['fee-amount']);
+        cpSend(network, source, data.destination, null, null, 'BTC', amt_sat, fee_sat, doneCb);
+    }
+    // Confirm the action with the user
+    var data    = DW.DIALOG_DATA;
+    var title = '<img src="' + DW.XCHAIN_API + '/icon/' + data.asset + '.png" class="fw-icon-20 margin-right-5"> Confirm Buy ' + data.name + '?';
+    var msg  = 'Buy <b>' + vals.amount + ' ' + data.name + '</b>';
+        msg += ' <br/>for <b>' + vals['btc-amount'] + ' BTC</b>';
+    dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
+}
+
+// Handle checking for any pending dispenser vends and determine if the dispenser still has quantity to dispense 
+function checkDispenserQuantity(vals){
+    var asset = DW.DIALOG_DATA.asset;
+    // Check mempool for any pending dispenser transactions
+    $.getJSON(DW.XCHAIN_API + '/api/mempool/' + DW.DIALOG_DATA.destination, function(o){
+        var give_remaining = numeral(DW.DIALOG_DATA.give_remaining);
+        if(o.data){
+            // Loop through any pending dispenses and determine how many dispenser has left to dispense
+            o.data.forEach(function(json){
+                if(json.asset==asset){
+                    var fmt = (json.divisible==true) ? '0.00000000': '0',
+                        qty = (json.divisible==true) ? (json.dispense_quantity * 0.00000001) : json.dispense_quantity,
+                        qty  = numeral((qty||0)).format(fmt);
+                    give_remaining.subtract(qty)
+                }
+            });
+        }
+        // Throw warning about dispenser already having pending transactions that will empty it
+        if(give_remaining.value() <= 0){
+            dialogWarnEmptyDispenser(vals);
+        } else {
+            // Confirm the dispenser payment with the user
+            confirmDispenserPayment(vals);
+        }
+    });
+}
+
+$(document).ready(function(){
+
+    // Load any field content
+    $('#token-name-select-field').load('html/fields/token-name-select.html');
+    $('#amount-field').load('html/fields/amount.html');
+    $('#btc-amount-field').load('html/fields/amount-btc.html');
+    $('#tx-fee-field').load('html/fields/tx-fee.html');
+
+    // Delay initializing some fields to give things a chance to load
+    setTimeout(function(){
+
+        // Initialize any tooltips
+        $('[data-toggle="tooltip"]').tooltip({ 
+            html: true,
+            placement: 'bottom'
+        }); 
+
+    },100);
+
+    // Clear the dialog data
+    // DW.DIALOG_DATA = {};
+
+    // Submit form if user clicks 'Submit' button
+    $('#btn-submit').click($.debounce(100,function(e){
+        $('#dispenser-buy-form').submit();
+    }));
+
+    // Hide the form if users clicks 'Cancel' button
+    $('#btn-cancel').click($.debounce(100,function(e){
+        dialogClose('dialog-dispenser-buy');
+    }));
+
+    // Handle form validation and displaying any errors
+    $('#dispenser-buy-form').validator().on('submit', function(e){
+        // prevent form submission
+        e.preventDefault(); 
+        // Get object with form values
+        var vals   = array2Object($(this).serializeArray()),
+            errors = [];
+        console.log('vals=',vals);
+        // Remove error indicators from any fields 
+        $('.form-group').removeClass('has-error has-danger');
+
+        // Verify we have valid fee amount 
+        if(numeral(vals['fee-amount']).value()==0){
+            errors.push('You must enter a fee which is greater than 0.00000000!');
+            $('#fee-amount').closest('.form-group').addClass('has-error has-danger');
+        }
+
+        // Verify BTC being paid will at least trigger one dispense
+        if(numeral(vals['btc-amount']).value() < numeral(DW.DIALOG_DATA.satoshirate).value()){
+            errors.push('BTC Amount is lower than the requested dispenser amount!');
+            $('#btc-amount').closest('.form-group').addClass('has-error has-danger');
+        }
+
+        // Throw error if amount is below dust amount
+        if(numeral(vals['btc-amount']).multiply(100000000).value() < 546){
+            errors.push('BTC Amount must be greater than dust (0.00000546 BTC)!');
+            $('#btc-amount').closest('.form-group').addClass('has-error has-danger');
+        }
+
+        // Display any error message
+        if(errors.length){
+            dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
+        } else {
+            // Check for cases where give_amount is less than 1 and throw warning and confirm with user
+            if(numeral(DW.DIALOG_DATA.give_quantity).value() < 1){
+                dialogWarnGiveQuantityAmount(vals);
+            }  else {
+                // Verify that dispenser still has some tokens to sell (check mempool)
+                checkDispenserQuantity(vals);
+            }
+        }
+    })
+
+
+});
+</script>

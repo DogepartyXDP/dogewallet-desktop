@@ -1,19 +1,3 @@
-
-<style>
-.settings-content .tab-content {
-    background-color: #fff;
-    border-bottom-left-radius: 5px;
-    border-bottom-right-radius: 5px;
-}
-.settings-content .nav-tabs>li.active>a {
-    border: 1px solid #ccc;
-    border-bottom-color: transparent;
-}
-.settings-content fieldset {
-    max-width: 600px;
-}
-</style>
-
 <!-- Settings Form -->
 <div class="settings-content">
     <form class="form-horizontal" id="settings-form" data-toggle="validator" role="form">
@@ -23,7 +7,7 @@
                 <li class="active">
                     <a data-toggle="tab" href="#wallet"><i class="fa fa-bitcoin"></i> Wallet</a></li>
                 <li><a data-toggle="tab" href="#preferences"><i class="fa fa-cog"></i> Preferences</a></li>
-                <li><a data-toggle="tab" href="#apikeys"><i class="fa fa-key"></i> API Keys</a></li>
+                <!-- <li><a data-toggle="tab" href="#apikeys"><i class="fa fa-key"></i> API Keys</a></li> -->
                 <li><a data-toggle="tab" href="#servers"><i class="fa fa-server"></i> Server Settings</a></li>
             </ul>
             <div class="tab-content" style="border: 1px solid #ccc; border-top: 0px !important;padding: 10px">
@@ -37,7 +21,7 @@
                             </label>
                             <div class="col-sm-9">
                                 <div class="input-group">
-                                    <input type="password" class="form-control" name="passphrase" id="passphrase" placeholder="Current Passphrase" value="word word word word word word word word word word word word" readonly>
+                                    <input type="password" class="form-control" autocomplete="off" name="passphrase" id="passphrase" placeholder="Current Passphrase" value="word word word word word word word word word word word word" readonly >
                                     <a href="#" class="input-group-addon" id="settings-passphrase"><i class="fa fa-eye"></i></a>
                                 </div>
                             </div>
@@ -78,6 +62,21 @@
                 <!-- General Preferences -->
                 <div id="preferences" class="tab-pane">
                     <fieldset>
+                        <div class="form-group">
+                            <label for="wallet-autolock" class="col-sm-3 control-label no-right-padding">
+                                Auto-Lock
+                                <a href="#" data-toggle="tooltip" title='This is the amount of time before the wallet automatically locks' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
+                            </label>
+                            <select class="col-sm-9 selectpicker"  name="wallet-autolock" id="wallet-autolock">
+                                <option value="1">1 minute</option>
+                                <option value="5">5 minutes</option>
+                                <option value="10">10 minutes</option>
+                                <option value="15">15 minutes</option>
+                                <option value="30">30 minutes</option>
+                                <option value="60">60 minutes</option>
+                                <option value="0">Disabled - Do Not Auto-Lock</option>
+                            </select>
+                        </div>
                         <div class="form-group">
                             <label for="current-theme" class="col-sm-3 control-label no-right-padding">
                                 Theme
@@ -132,9 +131,83 @@
                                 </div>
                             </div>
                         </div>
-                    </fieldset>            
+                    </fieldset>
+                    <fieldset>
+                        <legend>Automatic Donation System</legend>
+                        <div class="form-group">
+                            <label for="donate-status" class="col-sm-3 control-label no-right-padding">
+                                Auto-Donate
+                                <a href="#" data-toggle="tooltip" title='This is where you choose how often to donate, or to disable the donation system' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
+                            </label>
+                            <select class="col-sm-9 selectpicker" name="donate-status" id="donate-status">
+                                <option value="1">Enabled</option>
+                                <option value="75">On 75% of transactions</option>
+                                <option value="50">On 50% of transactions</option>
+                                <option value="25">On 25% of transactions</option>
+                                <option value="0">Disabled - Do Not Donate</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="donate-cause" class="col-sm-3 control-label no-right-padding">
+                                Cause
+                                <a href="#" data-toggle="tooltip" title='This is what cause you would like your donations to support' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
+                            </label>
+                            <select class="col-sm-9 selectpicker" name="donate-cause" id="donate-cause">
+                                <option value="1">Counterparty General Fund</option>
+                                <option value="1">XChain Hosting</option>
+                                <option value="1">Freewallet Development</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="donate-amount" class="col-sm-3 control-label no-right-padding">
+                                Amount
+                                <a href="#" data-toggle="tooltip" title='This is the amount of DOGE to use on donation transactions' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
+                            </label>
+                            <div class="col-sm-9">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" name="donate-amount" id="donate-amount" placeholder="Default Size (1.00000000)" style="width:200px">
+                                    <a class="input-group-addon border-left-0 border-right-0 "><i class="fa fa-usd"></i></a>
+                                    <input type="text" class="form-control" name="donate-value" id="donate-value" placeholder="0.00" readonly>
+                                    <a href="#" class="input-group-addon" id="reset-donate-amount">Reset</a>
+                                </div>
+                            </div>
+                        </div>
+                    </fieldset>
+                    <fieldset>
+                        <legend>Advanced Settings</legend>
+                        <div class="form-group">
+                            <label for="regular-dust-size" class="col-sm-3 control-label no-right-padding">
+                                Regular Dust Size
+                                <a href="#" data-toggle="tooltip" title='This is the amount of dust used in most outputs' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
+                            </label>
+                            <div class="col-sm-9">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" name="regular-dust-size" id="regular-dust-size" placeholder="Default Size (0.01000000)" style="width:200px">
+                                    <a class="input-group-addon border-left-0 border-right-0 "><i class="fa fa-usd"></i></a>
+                                    <input type="text" class="form-control" name="regular-dust-value" id="regular-dust-value" placeholder="0.00" readonly>
+                                    <a href="#" class="input-group-addon" id="reset-regular-dust-size">Reset</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="multisig-dust-size" class="col-sm-3 control-label no-right-padding">
+                                Multisig Dust Size
+                                <a href="#" data-toggle="tooltip" title='This is the amount of dust used in multisig outputs' class="pull-right"><i class="fa fa-lg fa-question-circle-o margin-top-5" ></i></a>
+                            </label>
+                            <div class="col-sm-9">
+                                <div class="input-group">
+                                    <input type="text" class="form-control" name="multisig-dust-size" id="multisig-dust-size" placeholder="Default Size (0.01000000)" style="width:200px">
+                                    <a class="input-group-addon border-left-0 border-right-0 "><i class="fa fa-usd"></i></a>
+                                    <input type="text" class="form-control" name="multisig-dust-value" id="multisig-dust-value" placeholder="0.00" readonly>
+                                    <a href="#" class="input-group-addon" id="reset-multisig-dust-size">Reset</a>
+                                </div>
+                            </div>
+                        </div>
+
+                    </fieldset>
                 </div>
                 <!-- API Keys -->
+                <!--
                 <div id="apikeys" class="tab-pane">
                     <fieldset>
                         <div class="form-group">
@@ -147,7 +220,8 @@
                             </div>
                         </div>
                     </fieldset>
-                </div>                
+                </div>
+                -->
                 <!-- Server Settings -->
                 <div id="servers" class="tab-pane">
                     <fieldset>
@@ -330,6 +404,9 @@ $(document).ready(function(){
         $('#settings-form').submit();
     });
 
+    // Set auto-lock field 
+    $('#wallet-autolock').val(DW.WALLET_AUTOLOCK);
+
     // Set fee priority based on current value
     var val = ls.getItem('feePriority') || 'High';
     $('#current-priority').val(val);
@@ -344,7 +421,7 @@ $(document).ready(function(){
     // Make any selects look nicer by using dialog-select
     $('.selectpicker').selectpicker({
         style: 'btn-default btn-block',
-        size: 4
+        size: 5
     });
 
     // Save fee priority when it changes
@@ -367,20 +444,24 @@ $(document).ready(function(){
         ls.removeItem('feeMinimum');
     });
 
-    // Handle making sure minimum fee is within sane ranges (1000-10,000 satoshis)
+    // Handle making sure minimum fee is within sane ranges (250-10,000 satoshis)
     $('#minimum-tx-fee').change(function(){
         var el   = $(this);
-            val  = el.val(),
-            sats = numeral(numeral(val).format('0.00000000').split('.')[1]).format('0'),
-            min  = 1000,
-            max  = 10000;
+            val  = el.val();
+        // Convert from 0.00000000 to sats format
+        sats = parseInt(val * 100000000);
+        // Throw error if user goes over max 
+        var max = 1000000000, // 10.0 DOGE
+            min = 1000000;   // 0.01 DOGE
+
+        console.log('sats=',sats);
         // Force format to 0.00000000
         el.val(numeral(val).format('0.00000000'));
         var errors = [];
         if(sats < min)
-            errors.push('Minimum Fee is below minmum of ' + numeral(min).format('0,0') + ' satoshis!');
+            errors.push('Minimum Fee is below minmum of ' + numeral(min * 0.00000001).format('0,0.00') + ' DOGE!');
         if(sats > max)
-            errors.push('Minimum Fee is above maximum of ' + numeral(max).format('0,0') + ' satoshis!');
+            errors.push('Minimum Fee is above maximum of ' + numeral(max * 0.00000001).format('0,0.00') + ' DOGE!');
         // Display any error message
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>'));
@@ -457,6 +538,191 @@ $(document).ready(function(){
             return;
         var net = $(this).val();
         setWalletNetwork(net);
+    });
+
+    // Handle Updating the auto-lock function
+    $('#wallet-autolock').change(function(){
+        // Make sure wallet is unlocked
+        if(dialogCheckLocked('change wallet auto-lock time'))
+            return;
+        var val = $(this).val();
+        DW.WALLET_AUTOLOCK = val;
+        ls.setItem('walletAutoLock', DW.WALLET_AUTOLOCK);
+    });
+
+    // Handle saving regular dust size on change
+    $('#regular-dust-size').change(function(e){
+        var val  = $(this).val(),
+            usd  = $('#regular-dust-value'),
+            doge = getAssetPrice('DOGE',true),
+            errors = [];
+        if(val==''){
+            DW.DUST_SIZE_REGULAR = false;
+            ls.removeItem('dustSizeRegular');
+        } else {
+            // Convert from 0.00000000 to sats format
+            sats = parseInt(val * 100000000);
+            // Throw error if user goes over max 
+            var max = 100000000, // 10.0 DOGE
+                min = 1000000;   // 0.01 DOGE
+            if(sats>max)
+                errors.push('Maximum dust value is  ' + numeral(max * 0.00000001).format('0,0.00') + ' DOGE!');
+            if(sats<min)
+                errors.push('Minimum dust value is  ' + numeral(min * 0.00000001).format('0,0.00') + ' DOGE!');
+            // Display any error message
+            if(errors.length){
+                dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>'));
+                // Reset displayed fee to current setting
+                DW.DUST_SIZE_REGULAR = false;
+                ls.removeItem('dustSizeRegular');
+                $(this).val('');
+            } else {
+                DW.DUST_SIZE_REGULAR = sats;
+                ls.setItem('dustSizeRegular', sats);
+                $(this).val(numeral(val).format('0.00000000'));
+                usd.val(numeral(val * doge.price_usd).format('0.00'));
+            }
+        }
+    });
+
+    // Handle resetting regular dust size
+    $('#reset-regular-dust-size').click(function(){
+        DW.DUST_SIZE_REGULAR = false;
+        $('#regular-dust-size').val('');
+        $('#regular-dust-value').val('0.00');
+        ls.removeItem('dustSizeRegular');
+    });
+
+    // Handle saving multisig dust size on change
+    $('#multisig-dust-size').change(function(e){
+        var val    = $(this).val(),
+            usd    = $('#multisig-dust-value'),
+            doge   = getAssetPrice('DOGE',true),
+            errors = [];
+        if(val==''){
+            DW.DUST_SIZE_MULTISIG = false;
+            ls.removeItem('dustSizeMultisig');
+        } else {
+            // Convert from 0.00000000 to sats format
+            sats = parseInt(val * 100000000);
+            // Throw error if user goes over max 
+            var max = 100000000, // 10.0 DOGE
+                min = 1000000;   // 0.01 DOGE
+            if(sats>max)
+                errors.push('Maximum dust value is  ' + numeral(max * 0.00000001).format('0,0.00') + ' DOGE!');
+            if(sats<min)
+                errors.push('Minimum dust value is  ' + numeral(min * 0.00000001).format('0,0.00') + ' DOGE!');
+            // Display any error message
+            if(errors.length){
+                dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>'));
+                // Reset displayed fee to current setting
+                DW.DUST_SIZE_MULTISIG = false;
+                ls.removeItem('dustSizeMultisig');
+                $(this).val('');
+            } else {
+                DW.DUST_SIZE_MULTISIG = sats;
+                ls.setItem('dustSizeMultisig', sats);
+                $(this).val(numeral(val).format('0.00000000'));
+                usd.val(numeral(val * doge.price_usd).format('0.00'));
+            }
+        }
+    });
+
+    // Handle resetting multisig dust size
+    $('#reset-multisig-dust-size').click(function(){
+        DW.DUST_SIZE_MULTISIG = false;
+        $('#multisig-dust-size').val('');
+        $('#multisig-dust-value').val('0.00');
+        ls.removeItem('dustSizeMultisig');
+    });    
+
+    // Load the current dust preferences
+    var dust1 = (DW.DUST_SIZE_REGULAR==false) ? '' : numeral(DW.DUST_SIZE_REGULAR * 0.00000001).format('0,0.00000000'),
+        dust2 = (DW.DUST_SIZE_MULTISIG==false) ? '' : numeral(DW.DUST_SIZE_MULTISIG* 0.00000001).format('0,0.00000000');
+    $('#regular-dust-size').val(dust1).change();
+    $('#multisig-dust-size').val(dust2).change();
+
+    // Save donation system status on any change
+    $('#donate-status').change(function(e){
+        var val = $(this).val();
+        DW.DONATE_STATUS = val;
+        DW.DONATE_COUNT  = 0; // reset count on any status change
+        ls.setItem('donateCount', DW.DONATE_COUNT);
+        if(val==1){
+            ls.removeItem('donateStatus');
+        } else {
+            ls.setItem('donateStatus', val);
+        }
+    });
+
+    // Load the current donation system preferences
+    $('#donate-status').selectpicker("val", DW.DONATE_STATUS);
+
+    // Handle saving donation amount on change
+    $('#donate-amount').change(function(e){
+        var val  = $(this).val(),
+            usd  = $('#donate-value'),
+            doge = getAssetPrice('DOGE',true),
+            errors = [];
+        // Convert from 0.00000000 to sats format
+        sats = parseInt(val * 100000000);
+        // Throw error if user goes over max 
+        var max = 10000000000,
+            min = 1000000;
+        if(sats>max)
+            errors.push('Maximum donation value is  ' + numeral(max * 0.00000001).format('0,0.00') + ' DOGE!');
+        if(sats<min)
+            errors.push('Minimum donation value is  ' + numeral(min * 0.00000001).format('0,0.00') + ' DOGE!');
+        // Display any error message
+        if(errors.length){
+            dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>'));
+            $(this).val(numeral(DW.DONATE_AMOUNT * 0.00000001).format('0,0.00000000'));
+        } else {
+            DW.DONATE_AMOUNT = sats;
+            if(DW.DONATE_AMOUNT==DW.DONATE_DEFAULT){
+                ls.removeItem('donateAmount');
+            } else {
+                ls.setItem('donateAmount', sats);
+            }
+            $(this).val(numeral(val).format('0.00000000'));
+            usd.val(numeral(val * doge .price_usd).format('0.00'));
+        }
+    });
+
+    // Handle resetting donate amount
+    $('#reset-donate-amount').click(function(){
+        DW.DONATE_AMOUNT = DW.DONATE_DEFAULT;
+        ls.removeItem('donateAmount');
+        $('#donate-amount').val(numeral(DW.DONATE_AMOUNT * 0.00000001).format('0,0.00000000')).change();
+    });    
+
+    // Load the current donation amount preferences
+    $('#donate-amount').val(numeral(DW.DONATE_AMOUNT * 0.00000001).format('0,0.00000000')).change();
+
+    // Add default option and update list immediately
+    var el   = $('#donate-cause'),
+        html = '<option data-content="" value="DDonateSk9p1NNwH4dur1Kev3YvSv349hQ">DogeWallet Development Fund</option>';
+    el.html(html);
+    el.selectpicker("refresh");
+    el.selectpicker("val", DW.DONATE_ADDRESS);
+
+    // Handle updating donation causes list 
+    if(DW.DONATE['mainnet'].length){
+        var html = '',
+            net  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
+        DW.DONATE['mainnet'].forEach(function(item){
+            html += '<option data-content="' + item.name + '" value="' + item.address + '">' + item.name + '</option>';
+        });
+        el.html(html);
+        el.selectpicker("refresh");
+        el.selectpicker("val", DW.DONATE_ADDRESS);
+    }
+
+    // Detect an donation cause change and update to use appropriate field
+    $('#donate-cause').change(function(e){
+        var val = $(this).val();
+        DW.DONATE_ADDRESS = val;
+        ls.setItem('donateAddress', val);
     });
 
 });

@@ -160,17 +160,11 @@ $(document).ready(function(){
         }
         // VALIDATION - Multi-Send (MPMA)
         if(type=='multiple'){
-            errors.push('Multi-Send (MPMA) is currently disabled due to the Dogecoin network not having support for segregated witness (segwit).');
-            // // Disable MPMA Sends for segwit addresses until 
-            // if(vals.source.substring(0,3)=='bc1'){
-            //     errors.push('Multi-Send (MPMA) is currently disabled on segwit addresses to prevent loss of DOGE. <br>Please use simple send instead for now.');
-            //     $('#send-list').closest('.form-group').addClass('has-error has-danger');
-            // }
-            // // Require a send list
-            // if(vals['send-list']==''){
-            //     errors.push('You must enter a list of addresses, assets, and quantities!');
-            //     $('#send-list').closest('.form-group').addClass('has-error has-danger');
-            // }
+            // Require a send list
+            if(vals['send-list']==''){
+                errors.push('You must enter a list of addresses, assets, and quantities!');
+                $('#send-list').closest('.form-group').addClass('has-error has-danger');
+            }
         }
         // Verify we have valid fee amount 
         if(numeral(vals['fee-amount']).value()==0){
@@ -182,7 +176,7 @@ $(document).ready(function(){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
             var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-                fee_sat = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
+                fee_sat = getSatoshis(vals['fee-amount']),
                 is_data = (vals['memo-type']=='data') ? true : false;
             // Callback to run after broadcasting send
             var doneCb = function(tx){
@@ -196,7 +190,7 @@ $(document).ready(function(){
             if(type=='single'){
                 // Callback to run if user confirms action
                 var confirmCb = function(){
-                    var amt_sat = (vals.amount.indexOf('.')!=-1) ? numeral(vals.amount).multiply(100000000).format('0') : numeral(vals.amount).format('0');
+                    var amt_sat = getSatoshis(vals.amount);
                     cpSend(network, vals.source, vals.destination, vals.memo, is_data, vals.name, amt_sat, fee_sat, doneCb);
                 }
                 // Confirm the action with the user
@@ -225,7 +219,7 @@ $(document).ready(function(){
                     if(memo!='')
                         memo = String(info.slice(3,info.length).join(',')).trim().replace(/^"|"$/g,'');
                     if(quantity.indexOf('.')!=-1){
-                        quantity = parseInt(numeral(quantity).multiply(100000000).value());
+                        quantity = parseInt(quantity.replace('.',''));
                     } else {
                         quantity = parseInt(quantity);
                     }
@@ -244,10 +238,36 @@ $(document).ready(function(){
                 var confirmCb = function(){
                     cpMultiSend(network, vals.source, vals.destination, vals.memo, vals.memo_is_hex, vals.asset, vals.quantity, fee_sat, doneCb);
                 }
-                // Confirm the action with the user
-                var title = 'Confirm Send?';
-                var msg  = 'Are you sure you want to process the ' + sends.length + ' sends listed below?</b>';
-                dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
+                // Check what the actual DOGE fee will be
+                updateTransactionStatus('pending', 'Checking data encoding fees on send...');
+                // Create unsigned send transaction
+                createMultiSend(network, vals.source, vals.destination, vals.memo, vals.memo_is_hex, vals.asset, vals.quantity, fee_sat, null, function(o){
+                    if(o && o.result){
+                        // Clear status message 
+                        updateTransactionStatus('clear', '');
+                        //decode the transaction
+                        var tx  = bitcoinjs.Transaction.fromHex(o.result),
+                            doge = getAssetPrice('DOGE',true),
+                            fee = 0,
+                            usd = 0;
+                        // Loop through outputs and sum up values
+                        tx.outs.slice(0, -1).forEach(function(out){
+                            fee += out.value;
+                        });
+                        fee = numeral(fee * 0.00000001).format('0,0.00000000');
+                        usd = numeral(fee * doge.price_usd).format('0,0.00');
+                        // Confirm the action with the user
+                        var title = 'Confirm Send?';
+                        var msg  = 'Are you sure you want to process the ' + sends.length + ' sends listed below?</b>';
+                            msg += '<br><br><div class="alert alert-warning" role="alert">This will include an additional fee of ' + fee + ' DOGE ($' + usd + ') <br>needed to encode the data to the Dogecoin (DOGE) blockchain.</div>';
+                        dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
+                    } else {
+                        updateTransactionStatus('error', 'Error communicating with the Counterparty API!');
+                        cbError(o,'Error communicating with the Counterparty API');
+                    }
+                });
+
+
             }
 
         }

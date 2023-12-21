@@ -97,7 +97,7 @@ $(document).ready(function(){
                         doneCb(txid);
                     } else {
                         updateTransactionStatus('error', 'Error broadcasting transaction!');
-                        cbError('Error while trying to broadcast transaction. Please try again.', doneCb);
+                        cbError(false, 'Error while trying to broadcast transaction', doneCb);
                     }
                 });
             }
@@ -126,13 +126,13 @@ $(document).ready(function(){
             errors.push('You must enter a transaction to sign! ');
             $('#sign-transaction').closest('.form-group').addClass('has-error has-danger');
         }
+        // Determine wallet network so we can pass in API requests
+        var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
         updateTransactionStatus('clear');
         // Display any error message
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
-            // Handle signing the message and populating the 'Signed' box
-            var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
             updateTransactionStatus('pending', 'Signing transaction...');
             signTransaction(network, vals.source, vals.source, vals.transaction, function(tx){
                 var val = '';
@@ -141,10 +141,43 @@ $(document).ready(function(){
                     val = tx;
                 } else {
                     updateTransactionStatus('error', 'Error signing transaction!');
-                    dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', 'Error while trying to sign transaction! Please try again.' );
+                    dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', 'Error while trying to sign transaction!' );
                 }
                 $('#signed-transaction').val(val);
-            });            
+            });
+
+            // Try to decode what the transaction is doing
+            // Come back through and get this working again once BTNS is a bit further along
+            // updateTransactionStatus('pending', 'Decoding transaction...');
+            // decodeTransaction(network, vals.transaction, function(tx){
+            //     var title = '<i class="fa fa-lg fa-fw fa-file-text"></i> Confirm Sign?',
+            //         msg   = 'This is does not appear to be a dogeparty transaction.<br>Do you still want to sign this transaction?';
+            //     // If this is a Dogeparty transaction, display the decoded data
+            //     if(tx && tx.xcp){
+            //         msg = 'Dogeparty Transaction Data<br>';
+            //         msg += '<pre><code class="language-css" style="white-space: pre !important;">' + JSON.stringify(tx.xcp, null, 4) + '</code></pre>';
+            //     }
+            //     // Callback to run if user confirms action
+            //     var confirmCb = function(){
+            //         // Handle signing the message and populating the 'Signed' box
+            //         var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet';
+            //         updateTransactionStatus('pending', 'Signing transaction...');
+            //         signTransaction(network, vals.source, vals.source, vals.transaction, function(tx){
+            //             var val = '';
+            //             if(tx){
+            //                 updateTransactionStatus('success', 'Transaction successfully signed!');
+            //                 val = tx;
+            //             } else {
+            //                 updateTransactionStatus('error', 'Error signing transaction!');
+            //                 dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', 'Error while trying to sign transaction!' );
+            //             }
+            //             $('#signed-transaction').val(val);
+            //         });    
+            //     }
+            //     updateTransactionStatus('clear');
+            //     // Confirm the action with the user before signing                    
+            //     dialogConfirm(title, msg, false, true, confirmCb)
+            // });            
         }
     })
 

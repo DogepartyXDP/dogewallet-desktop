@@ -4,3 +4,6 @@
 /builds
 /cache
 /node_modules
+/ssl
+/package-lock.json
+/node_modules.nw-builder.tgz

@@ -8,34 +8,15 @@
 
 let bitcoin = require('bitcoinjs-lib');
 
-
-// Handle setting the currency network 
-function setCurrency(net='mainnet'){
-    var network = (net=='testnet') ? 'Testnet' : 'Bitcoin';
-    console.log('setCurrency network=',network);
-    TrezorConnect.setCurrency(network);
-}
-
-// Handle requesting a xpubkey from the Trezor
-function getXpubkey(net='mainnet', callback){
-    setCurrency(net);
-    TrezorConnect.getXPubKey(null, function(response){
-        if(typeof callback === 'function')
-            callback(response);
-    });    
-}
-
-// Handle requesting a list of addresses 
-function getAddressesFromXpub(net='mainnet', xpubkey,  limit=10, start=0){
-    var network = (net=='testnet') ? 'testnet' : 'mainnet';
-    const node = bitcoin.HDNode.fromBase58(xpubkey, bitcoin.networks[network]).neutered();
-    addresses = [];
-    var stop = start + limit;
-    for(var i = start; i < stop; i++) {
-        var address = node.derive(0).derive(i).getAddress();
-        addresses.push(address);
-    }
-    return addresses;
+// Handle initializing a connection to Trezor Connect
+function initTrezor(){
+    TrezorConnect.init({
+        lazyLoad: true,
+        manifest: {
+            email: 'j-dog@j-dog.net',
+            appUrl: 'http://freewallet.io',
+        }
+    });
 }
 
 // Handle validating that a signed tx outputs match the unsigned tx outputs
@@ -56,6 +37,32 @@ function isValidTransaction(unsignedTx, signedTx){
     return v;
 }
 
+// Handle returning script type based on output and network
+function scriptTypeFromOutputScript(output, network) {
+    network = network || bitcoin.networks.bitcoin;
+    try {
+        payments.p2pkh({ output, network }).address;
+        return "PAYTOADDRESS"
+    } catch (e) {}
+    try {
+        payments.p2sh({ output, network }).address;
+        return null //no support yet
+    } catch (e) {}
+    try {
+        payments.p2wpkh({ output, network }).address;
+        return "PAYTOWITNESS"
+    } catch (e) {}
+    try {
+        payments.p2wsh({ output, network }).address;
+        return null //no support yet
+    } catch (e) {}
+    try {
+        payments.p2tr({ output, network }).address;
+        return null //no support yet
+    } catch (e) {}
+    return null
+}
+
 // Handle signing a transaction
 // @net        = Network (mainnet, testnet)
 // @source     = Source Address
@@ -71,15 +78,21 @@ function signTx(net='mainnet', source, path, unsignedTx, callback){
         tx      = bitcoin.Transaction.fromHex(unsignedTx),
         utxos   = {}; // object containing utxo hashes and specific output indexes to use
     // Convert BIP44 path into usable Trezor address_n
-    var bip44   = path.split("'/"); // m / purpose' / coin_type' / account' / change / address_index
-        address = [bip44[0] | network, bip44[1] | network, bip44[2] | network, bip44[3], bip44[4]];
+    var bip44   = path.replace(/[^0-9\/]/g, '').replace(/^\//,'').split("/"),
+        address = [
+            (bip44[0] | network) >>> 0, // purpose
+            (bip44[1] | network) >>> 0, // coin_type
+            (bip44[2] | network) >>> 0, // account
+            parseInt(bip44[3]),         // change
+            parseInt(bip44[4])          // address_index
+        ];
     // Loop through inputs and get list of previous transaction hashes
     tx.ins.forEach(function(input, n){
         var tx_hash = input.hash.reverse().toString('hex');
         utxos[tx_hash] = -1; // set to -1 so we can determine which ones have been processed and which have not
     });
     // Define callback to run when done with API calls 
-    var doneCb = function(){
+    var doneCb = async function(){
         // Check if we are truly done
         var done = true;
         for(var tx_hash in utxos){
@@ -89,12 +102,17 @@ function signTx(net='mainnet', source, path, unsignedTx, callback){
         if(done){
             // Build out a list of inputs
             tx.ins.forEach(function(input, n){
-                var tx_hash = input.hash.toString('hex'); // no need to reverse since it was already done above
-                inputs.push({
-                    address_n: address,         // Address 
-                    prev_hash: tx_hash,         // Previous transaction hash
-                    prev_index: utxos[tx_hash]  // output to use from previous transaction
-                })
+                var tx_hash = input.hash.toString('hex'), // no need to reverse since it was already done above
+                    tx_info = utxos[tx_hash];
+                    data = {
+                        address_n: address,         // Address 
+                        prev_hash: tx_hash,         // Previous transaction hash
+                        prev_index: tx_info.index,  // output to use from previous transaction
+                        amount: tx_info.amount      // amount of the output
+                    };
+                if(tx_info.type=='pay-to-witness-pubkey-hash')
+                    data.script_type = 'SPENDWITNESS';
+                inputs.push(data);
             });
             // Build out a list of outputs
             tx.outs.forEach(function(out, n){
@@ -107,48 +125,59 @@ function signTx(net='mainnet', source, path, unsignedTx, callback){
                         op_return_data: String(asm).replace('OP_RETURN ','')
                     };
                 } else {
+                    var address_from_script = bitcoin.address.fromOutputScript(out.script);
+                    var script_type_from_script = scriptTypeFromOutputScript(out.script);
                     output = {
-                        script_type: 'PAYTOADDRESS',
-                        address_n: address,
+                        script_type: script_type_from_script,
+                        address: address_from_script,
                         amount: out.value
                     }
                 }
                 outputs.push(output);
             });
-            console.log('inputs=',inputs);
-            console.log('outputs=',outputs);
-            setCurrency(net);
-            TrezorConnect.signTx(inputs, outputs, function(data){
-                console.log('data=',data);
-                // If the outputs mismatch in any way, the tx is not what is expected and we should throw error
-                // This can happen if user entered wrong/different password.
-                if(data.serialized_tx && !isValidTransaction(unsignedTx, data.serialized_tx)){
-                    var data = {
-                        success: false,
-                        error: 'outputs mismatch'
-                    };
-                }
-                if(typeof callback === 'function')
-                    callback(data);
-            });
+            // Build out request parameters
+            var params = {
+                inputs: inputs,
+                outputs: outputs,
+                coin: 'btc'
+            };
+            console.log("Trezor Request=",params);
+            var data = await TrezorConnect.signTransaction(params)
+            console.log('Trezor Response=',data);
+            // If the outputs mismatch in any way, the tx is not what is expected and we should throw error
+            // This can happen if user entered wrong/different password.
+            if(data.payload.serializedTx && !isValidTransaction(unsignedTx, data.payload.serializedTx)){
+                var data = {
+                    success: false,
+                    error: 'outputs mismatch'
+                };
+            }
+            if(typeof callback === 'function')
+                callback(data);
         }
     };
     // Request info on the utxos being used in this transaction and determine what output from the previous transaction is being used
     for(var tx_hash in utxos){
-        $.getJSON('https://api.blocktrail.com/v1/' + api_net + '/transaction/' + tx_hash + '?api_key=781fc8d6bc5fc6a83334384eecd8c9917d5baf37', function(data){
+        var name = (net=='testnet') ? 'test3' : 'main';
+        $.getJSON('https://api.blockcypher.com/v1/btc/' + name + '/txs/' + tx_hash, function(data){
             var index = 0;
             if(data){
-                data.outputs.forEach(function(input, idx){
-                    if(input.address==source)
-                        index = idx;
+                data.outputs.forEach(function(output, idx){
+                    if(output.addresses && output.addresses[0]==source){
+                        info = { 
+                            index: idx,
+                            address: output.addresses[0],
+                            amount: output.value,
+                            type: output.script_type
+                        };
+                    }
                 });
             }
-            utxos[tx_hash] = index;
+            utxos[tx_hash] = info;
             doneCb();
         });
     }
 }
-
 
 // Broadcast a given transaction
 // @net      = Network (mainnet, testnet)
@@ -202,8 +231,7 @@ function broadcastTx(network, signedTx, callback){
 
 
 module.exports = {
-    getXpubkey,
-    getAddressesFromXpub,
+    initTrezor,
     signTx,
     broadcastTx
 }

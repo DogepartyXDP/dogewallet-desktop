@@ -473,13 +473,11 @@ $(document).ready(function(){
     // Setup alias for localstorage
     var ls = localStorage;
 
-
     // Initialize some placeholders
     DW.RAW_CHART_DATA  = [];
     DW.CHART_DATA      = [];
     DW.MARKET_NAME     = 'DOGE/XDP';
     DW.ASSET_DIVISIBLE = {};
-
     // Load preferred market chart
     var chart = ls.getItem('marketChart') || 'candlestick';
     $('#market-chart-container').load('html/exchange/charts/' + chart + '.html');
@@ -648,8 +646,6 @@ $(document).ready(function(){
                 asset2  = assets[1],
                 errors  = [],
                 mindoge = 1.00000; // Minimum DOGE order amount
-            console.log('DW.ASSET_DIVISIBLE=',DW.ASSET_DIVISIBLE);
-            console.log('DW.MARKET_NAME=',DW.MARKET_NAME);
             // Verify price/amount/total are greater than 0
             if(numeral(vals[id + '-price']).value()==0){
                 errors.push('You must enter a ' + id + ' price which is greater than 0!');

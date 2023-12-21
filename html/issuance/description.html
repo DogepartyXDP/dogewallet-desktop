@@ -80,9 +80,17 @@ $(document).ready(function(){
             errors.push('You must enter a token name!');
             $('#token-name').closest('.form-group').addClass('has-error has-danger');
         }
-        // Verify token description is  52 characters or less
-        if(vals.description.length>52){
-            errors.push('Maximum token description length is 52 characters!');
+        // Strip asterisks from JSON and data URLs
+        var desc  = vals.description,
+            regex = /\;/g;
+        if(desc.substr(0,1)=='*' && (desc.substr(-4)=='json' || regex.test(desc))){
+            vals.description = desc.replace(/\*/g,'').trim();
+            $('#token-description').val(vals.description);
+        }
+        // Verify token description is 10,000 characters or less
+        var maxlength = 10000;
+        if(vals.description.length > maxlength){
+            errors.push('Maximum token description length is ' + numeral(maxlength).format('0,0') + ' characters!');
             $('#token-description').closest('.form-group').addClass('has-error has-danger');
         }
         // Verify we have valid fee amount 
@@ -94,26 +102,17 @@ $(document).ready(function(){
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
-            // Callback to run after broadcasting send
-            var doneCb = function(tx){
-                if(tx){
-                    dialogClose('dialog-change-description');
-                    dialogMessage('<i class="fa fa-lg fa-edit"></i> Description Change Successful', '<center>Your issuance has been broadcast to the network and your token description should be updated shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
-                }
-            }
-            // Callback to run if user confirms action
-            var confirmCb = function(){
-                var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-                    fee_sat = parseInt(numeral(vals['fee-amount']).multiply(100000000).value()),
-                    info    = DW.ASSET_INFO;
-                cpIssuance(network, vals.source, vals.name, 0, info.divisible, vals.description, null, fee_sat, doneCb);
-            }
-            // Confirm the action with the user
-            var title = '<i class="fa fa-lg fa-fw fa-question-circle"></i> Confirm Description Change?',
-                fmt   = ($('#asset-divisible').val()=='Yes') ? '0,0.00000000' : '0,0',
-                msg   = 'Change <b>' + vals.name + '</b> description to \'' + vals.description + '\'';
-            dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
+            var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                fee_sat = getSatoshis(vals['fee-amount']),
+                info    = DW.ASSET_INFO,
+                title   = '<i class="fa fa-lg fa-fw fa-question-circle"></i> Confirm Description Change?',
+                msg     = 'Change <b>' + vals.name + '</b> description to \'' + stripHtml(vals.description) + '\'';
+            // Confirm the issuance details with the user
+            confirmIssuance(title, msg, network, vals.source, vals.name, 0, info.divisible, vals.description, null, fee_sat, false, function(tx){
+                dialogClose('dialog-change-description');
+                dialogMessage('<i class="fa fa-lg fa-edit"></i> Description Change Successful', '<center>Your issuance has been broadcast to the network and your token description should be updated shortly.' +
+                              '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+            });
         }
     })
 

@@ -1,0 +1,74 @@
+<div class="center">
+    <!-- Search Toolbar -->
+    <div class="btn-toolbar" role="toolbar" aria-label="">
+        <div class="btn-group address-list-type" role="group" aria-label="">
+            <button type="button" value="0" class="btn btn-default active" style="width:90px">All</button>
+            <button type="button" value="1" class="btn btn-default" style="width:90px">Normal</button>
+            <!-- <button type="button" value="5" class="btn btn-default">Segwit</button> -->
+            <button type="button" value="2" class="btn btn-default" style="width:90px">Imported</button>
+            <button type="button" value="4" class="btn btn-default" style="width:90px">Hardware</button>
+            <button type="button" value="3" class="btn btn-default" style="width:87px">Watch</button>
+        </div>
+    </div>
+    <!-- Address List-->
+    <div class="address-list">
+        <ul class="nav">
+            <div class="address-list-empty">No addresses found</div>
+        </ul>
+    </div>
+    <input type="hidden" name="selected-address" class="selected-address" value="">
+    <input type="text" class="form-control address-list-search pull-left" placeholder="Filter / Search">
+    <div class="action-buttons pull-right">
+        <div id="btn-ok" class="btn btn-ok btn-success pull-right margin-left-5"><i class="fa fa-lg fa-fw fa-thumbs-up"></i> Ok</div>
+        <div id="btn-cancel" class="btn btn-ok btn-danger pull-right margin-left-5"><i class="fa fa-lg fa-fw fa-thumbs-down"></i> Cancel</div>
+    </div>
+    <div class="clear-both"></div>
+</div>
+<script>
+$(document).ready(function(){
+
+    // Default to showing all types
+    DW.WALLET_ADDRESS_TYPE = 0; 
+
+    // Display address list
+    updateAddressList();
+
+    // Focus the filter field so users can 
+    setTimeout(function(){
+        $('input[type="text"]').focus();
+    },500);
+    
+
+    // Handle updating/toggling the 'active' item in the address type button
+    $('.address-list-type button').click($.debounce(100,function(e){
+        $('.address-list-type button').removeClass('active');
+        $(this).addClass('active');
+        DW.WALLET_ADDRESS_TYPE = $(this).val();
+        updateAddressList();
+    }));
+
+    // Handle detecting keyup events and filter the balances list to show matches
+    // buffer the event by 250ms so we can allow for additional keystrokes before processing
+    $('.address-list-search').keyup($.debounce(250,function(e){
+        updateAddressList();
+    }));
+
+    // When user clicks the ok button, update the address and close the dialog box
+    $('#btn-ok').click($.debounce(100,function(e){
+        var addr = $('.selected-address').val();
+        if(addr && addr!=DW.WALLET_ADDRESS){
+            setWalletAddress(addr, true);
+            dialogMessage('<i class="fa fa-lg fa-fw fa-info-circle"></i> Wallet address changed', 'Your wallet address has been changed to ' + addr + '.');
+        }
+        dialogClose('dialog-change-address');
+    }));
+
+
+    // Handle canceling the action
+    $('#btn-cancel').click($.debounce(100,function(e){
+        dialogClose('dialog-change-address');
+    }));
+
+
+});
+</script>
