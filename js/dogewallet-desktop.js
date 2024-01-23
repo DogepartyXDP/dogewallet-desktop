@@ -1590,6 +1590,23 @@ function isBech32(addr) {
     }
 }
 
+// Handle checking if script is P2SH encoded
+function verifyP2SH(script){
+    var scriptDecompile = bitcoinjs.script.decompile(script);
+    if (scriptDecompile.length == 9){
+        if((scriptDecompile[1] == bitcoinjs.opcodes.OP_DROP) &&
+           (scriptDecompile[3] == bitcoinjs.opcodes.OP_CHECKSIGVERIFY) &&
+           (scriptDecompile[scriptDecompile.length-4] == bitcoinjs.opcodes.OP_DROP) &&
+           (scriptDecompile[scriptDecompile.length-3] == bitcoinjs.opcodes.OP_DEPTH) &&
+           (scriptDecompile[scriptDecompile.length-2] == 0) &&
+           (scriptDecompile[scriptDecompile.length-1] == bitcoinjs.opcodes.OP_EQUAL)){
+            return true;
+        }
+    }
+    return false;
+}
+
+
 // Get public key for a given network and address
 function getPublicKey(network, address){
     var privkey = getPrivateKey(network, address),
@@ -3225,18 +3242,25 @@ function signTransaction(network, source, destination, unsignedTx, callback){
             if(callback)
                 callback(signedTx);
         }
+        // Check if first input is P2SH
+        var tx             = bitcoinjs.Transaction.fromHex(unsignedTx),
+            txScript       = bitcoinjs.script.decompile(tx.ins[0].script),
+            isP2SH         = verifyP2SH(txScript[0]);
         // Check if any of the addresses are bech32
-        var sourceIsBech32 = isBech32(source);
-        var hasDestBech32  = destination.reduce((p, x) => p || isBech32(x), false);
-        var hasAnyBech32   = hasDestBech32 || sourceIsBech32;
+        var sourceIsBech32 = isBech32(source),
+            hasDestBech32  = destination.reduce((p, x) => p || isBech32(x), false),
+            hasAnyBech32   = hasDestBech32 || sourceIsBech32;
+        // Handle signing P2SH inputs
+        if(isP2SH){
+            signP2SHTransaction(network, source, destination, unsignedTx, callback);
         // Handle signing bech32 addresses
-        if(hasAnyBech32){
+        } else if(hasAnyBech32){
             // Use bitcoinjs implementation
             var tx      = bitcoinjs.Transaction.fromHex(unsignedTx),
-                netName = (net=='testnet') ? 'testnet' : 'bitcoin', // bitcoinjs
+                netName = (net=='testnet') ? 'dogetestnet' : 'dogemainnet', // bitcoinjs
                 network = bitcoinjs.networks[netName],
                 txb     = new bitcoinjs.TransactionBuilder(network),
-                keypair = bitcoinjs.ECPair.fromWIF(cwKey.getWIF(), network);
+                keypair = bitcoinjs.ECPair.fromWIF(dwKey.getWIF(), network);
             // Callback to modify transaction after we get a list of UTXOs back
             var utxoCb = function(data){
                 var utxoMap = {};
