@@ -1591,16 +1591,18 @@ function isBech32(addr) {
 }
 
 // Handle checking if script is P2SH encoded
-function verifyP2SH(script){
-    var scriptDecompile = bitcoinjs.script.decompile(script);
-    if (scriptDecompile.length == 9){
-        if((scriptDecompile[1] == bitcoinjs.opcodes.OP_DROP) &&
-           (scriptDecompile[3] == bitcoinjs.opcodes.OP_CHECKSIGVERIFY) &&
-           (scriptDecompile[scriptDecompile.length-4] == bitcoinjs.opcodes.OP_DROP) &&
-           (scriptDecompile[scriptDecompile.length-3] == bitcoinjs.opcodes.OP_DEPTH) &&
-           (scriptDecompile[scriptDecompile.length-2] == 0) &&
-           (scriptDecompile[scriptDecompile.length-1] == bitcoinjs.opcodes.OP_EQUAL)){
-            return true;
+function isP2SH(script){
+    if(script instanceof Uint8Array){
+        var scriptDecompile = bitcoinjs.script.decompile(script);
+        if (scriptDecompile.length == 9){
+            if((scriptDecompile[1] == bitcoinjs.opcodes.OP_DROP) &&
+               (scriptDecompile[3] == bitcoinjs.opcodes.OP_CHECKSIGVERIFY) &&
+               (scriptDecompile[scriptDecompile.length-4] == bitcoinjs.opcodes.OP_DROP) &&
+               (scriptDecompile[scriptDecompile.length-3] == bitcoinjs.opcodes.OP_DEPTH) &&
+               (scriptDecompile[scriptDecompile.length-2] == 0) &&
+               (scriptDecompile[scriptDecompile.length-1] == bitcoinjs.opcodes.OP_EQUAL)){
+                return true;
+            }
         }
     }
     return false;
@@ -3245,13 +3247,12 @@ function signTransaction(network, source, destination, unsignedTx, callback){
         // Check if first input is P2SH
         var tx             = bitcoinjs.Transaction.fromHex(unsignedTx),
             txScript       = bitcoinjs.script.decompile(tx.ins[0].script),
-            isP2SH         = verifyP2SH(txScript[0]);
-        // Check if any of the addresses are bech32
-        var sourceIsBech32 = isBech32(source),
+            sourceIsBech32 = isBech32(source),
             hasDestBech32  = destination.reduce((p, x) => p || isBech32(x), false),
-            hasAnyBech32   = hasDestBech32 || sourceIsBech32;
+            hasAnyBech32   = hasDestBech32 || sourceIsBech32,
+            hasAnyP2SH     = isP2SH(txScript[0]);
         // Handle signing P2SH inputs
-        if(isP2SH){
+        if(hasAnyP2SH){
             signP2SHTransaction(network, source, destination, unsignedTx, callback);
         // Handle signing bech32 addresses
         } else if(hasAnyBech32){
