@@ -72,10 +72,10 @@ function confirmCreateDispenser(vals){
             var rec = o.data[0];
             var total_fiat     = numeral(vals['fiat-amount']).value() * numeral(vals['escrow-amount']).value(),
                 total_fiat_fee = numeral(total_fiat).value() * numeral(rec.fee).value(),
-                total_btc_fee  = numeral(Math.ceil(((1 / numeral(rec.value).value()) * total_fiat_fee) * 100000000)).multiply(0.00000001).format('0,0.00000000');
-                fiat           = rec.text.replace('BTC-','');
+                total_doge_fee  = numeral(Math.ceil(((1 / numeral(rec.value).value()) * total_fiat_fee) * 100000000)).multiply(0.00000001).format('0,0.00000000');
+                fiat           = rec.text.replace('DOGE-','');
             msg += '<br>Dispense <b>' + vals['give-amount'] + ' ' + vals.name + '</b> for <b>' + vals['fiat-amount'] + ' ' + fiat +'</b> each?';
-            msg += '<br><br><div class="alert alert-warning" role="alert">This includes an oracle usage fee of ' + (rec.fee * 100) + '% or ' + numeral(total_fiat_fee).format('0,0.00') + ' ' + fiat + ' (' + total_btc_fee + ' BTC). <br>Oracle usage fees are charged whenever a dispenser is created or refilled.</div>';
+            msg += '<br><br><div class="alert alert-warning" role="alert">This includes an oracle usage fee of ' + (rec.fee * 100) + '% or ' + numeral(total_fiat_fee).format('0,0.00') + ' ' + fiat + ' (' + total_doge_fee + ' DOGE). <br>Oracle usage fees are charged whenever a dispenser is created or refilled.</div>';
             dialogConfirm(title, '<center>' + msg + '</center>', false, true, confirmCb);
         });
     } else {
