@@ -1,3 +1,9 @@
+Version 0.9.27 - Jan 23rd, 2024
+- Fixed issue with dispensers not working
+- Added support for P2SH signing
+- Added XDP fee on numeric assets
+- Added support for signing P2SH transactions
+
 Version 0.9.26 - Dec 25th, 2023
 - Added checks to verify wallet is unlocked before allowing add/import addresses
 - Update to pass `null` for description in asset issuance transfers
