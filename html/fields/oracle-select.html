@@ -52,12 +52,12 @@ $(document).ready(function(){
         var val = $(this).val();
         console.log('val=',val);
         if(val==''){
-            $('#btc-amount-field').show();
+            $('#doge-amount-field').show();
             $('#fiat-amount-field').hide();
         } else {
             updateFiatInfo();
             $('#fiat-amount-field').show();
-            $('#btc-amount-field').hide();
+            $('#doge-amount-field').hide();
             if(val=='other'){
                 $('#oracle-address-wrapper').show();
                 $('#oracle-select-wrapper').hide();
