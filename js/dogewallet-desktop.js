@@ -4320,7 +4320,7 @@ function dialogWelcome(){
         cssClass: 'dialog-welcome',
         closable: false,
         closeByBackdrop: false,
-        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> Welcome to FreeWallet',
+        title: '<i class="fa fa-lg fa-fw fa-info-circle"></i> Welcome to DogeWallet',
         message: $('<div></div>').load('html/welcome.html'),
         buttons:[{
             label: 'Login to Existing Wallet',
