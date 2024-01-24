@@ -2816,11 +2816,11 @@ function cpSweep(network, source, destination, flags, memo, fee, callback){
 
 
 // Handle creating/signing/broadcasting an 'Dispenser' transaction
-function cpDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, callback){
+function cpDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, oracle_address, callback){
     var cb  = (typeof callback === 'function') ? callback : false;
     updateTransactionStatus('pending', 'Generating dogeparty transaction...');
     // Create unsigned send transaction
-    createDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, function(o){
+    createDispenser(network, source, destination, asset, escrow_amount, give_amount, btc_amount, status, fee, oracle_address, function(o){
         if(o && o.result){
             updateTransactionStatus('pending', 'Signing dogeparty transaction...');
             // Sign the transaction
