@@ -1,4 +1,4 @@
-Version 0.9.33 - July 30th, 2024
+Version 0.9.33 - August 1st, 2024
 - Set default DP API servers to public.tokenscan.io
 - Set default explorer API servers to dogeparty.tokenscan.io
 - Fixed numeric value parsing / validation for order forms
