@@ -1,3 +1,24 @@
+Version 0.9.33 - July 30th, 2024
+- Set default DP API servers to public.tokenscan.io
+- Set default explorer API servers to dogeparty.tokenscan.io
+- Fixed numeric value parsing / validation for order forms
+- Fixed `checkWalletUpgrade()` to handle semantic versioning properly
+- Updated NFT display method to load data from API JSON projects array
+- Removed "View Transaction" context menu from history
+- Added "Create Subasset" context menu
+- Added "Verify" option to signing transaction dialog
+- Added support for displaying change address and amount when verifying transaction
+- Added support for closing dispensers from origin address
+- Added support for saving preferred sort order on markets and dispensers
+- Add ‘Reset to Defaults’ option in server settings
+- Start using SSL by default for DP API
+- Fixed issue with ADS and tx fee calculations
+- Added "UTXO Usage" preference in settings 
+- Improved transaction fee interface
+- Improved MPMA send transaction fee support
+- Adjusted default tx size to 256 bytes
+- Better transaction fee estimation support
+
 Version 0.9.27 - Jan 23rd, 2024
 - Fixed issue with dispensers not working
 - Added support for P2SH signing

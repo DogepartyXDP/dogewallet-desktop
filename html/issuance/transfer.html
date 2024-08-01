@@ -12,15 +12,26 @@
     <div class="form-group" id="tx-fee-field">
         <!-- Transaction Fee Field -->
     </div>
-    <div id="transaction-status" style="width: 280px !important"></div>
+    <div id="transaction-status" style="width: 300px !important"></div>
     <div class="text-right">
         <div id="btn-cancel" class="btn btn-danger margin-right-5"><i class="fa fa-lg fa-fw fa-ban"></i> Cancel</div>
-        <div id="btn-submit" class="btn btn-success "><i class="fa fa-lg fa-fw fa-exchange"></i> Transfer Ownership</div>
+        <div id="btn-submit" class="btn btn-success "><i class="fa fa-lg fa-fw fa-exchange"></i> Transfer</div>
     </div>
 </form>
 
 
 <script>
+// Handle generating a transaction using current data and passing it to a callback function
+function generateTransaction(callback=null, broadcast=false){
+    var vals      = array2Object($('#transfer-ownership-form').serializeArray()),
+        network   = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+        asset     = (vals.name!='') ? vals.name : false,
+        fee_sat   = getSatoshis(vals['fee-amount']),
+        divisible = (DW.ASSET_INFO.divisible) ? true : false,
+        command   = (broadcast) ? 'cpIssuance' : 'createIssuance';
+    if(asset)
+        eval(command)(network, vals.source, asset, 0, divisible, null, vals.destination, fee_sat, false, callback);
+}
 $(document).ready(function(){
 
     // Load any field content
@@ -62,6 +73,8 @@ $(document).ready(function(){
 
     // Submit form when user clicks 'Submit' button
     $('#btn-submit').click($.debounce(100,function(e){
+        if(DW.IGNORE_SUBMIT)
+            return;
         $('#transfer-ownership-form').submit()
     }));
 
@@ -94,19 +107,20 @@ $(document).ready(function(){
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
-            var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-                fee_sat = getSatoshis(vals['fee-amount']),
-                info    = DW.ASSET_INFO,
-                title   = '<i class="fa fa-lg fa-fw fa-exchange"></i> Confirm Transfer Ownership?',
-                msg     = 'Transfer ownership of <b>' + vals.name + '</b> to ' + vals.destination + ' ?';
-            // Confirm the issuance details with the user
-            confirmIssuance(title, msg, network, vals.source, vals.name, 0, info.divisible, null, vals.destination, fee_sat, false, function(tx){
+            // Callback to run after broadcasting transaction
+            var doneCb = function(tx){
+                if(tx){
                     dialogClose('dialog-transfer-ownership');
                     dialogMessage('<i class="fa fa-lg fa-exchange"></i> Transfer Successful', '<center>Your transfer has been broadcast to the network and the token owner should be updated shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
-            });
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.EXPLORER_API +'/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                }
+            }
+            // Confirm the action with the user
+            var title = '<i class="fa fa-lg fa-fw fa-exchange"></i> Confirm Transfer Ownership?',
+                msg   = getConfirmationMessage('Transfer ownership of <b>' + vals.name + '</b> to ' + vals.destination + ' ?', vals);
+            dialogConfirm(title, msg, false, true, function(){ generateTransaction(doneCb, true); });
         }
-    });
+    })
 
 
 });

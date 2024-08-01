@@ -74,6 +74,17 @@
 </form>
 
 <script>
+// Handle generating a transaction using current data and passing it to a callback function
+function generateTransaction(callback=null, broadcast=false){
+    var vals     = array2Object($('#create-order-form').serializeArray()),
+        network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+        fee_sat  = getSatoshis(vals['fee-amount']),
+        get_sat  = getSatoshis(vals.get_amount),
+        give_sat = getSatoshis(vals.give_amount);
+        expires  = numeral(vals.expires).value(),
+        command  = (broadcast) ? 'cpOrder' : 'createOrder';
+    eval(command)(network, vals.source, vals.get_asset, vals.give_asset, get_sat, give_sat, expires, fee_sat, callback);
+}
 
 // Handle updating the confirmation text based off selected value
 var updateAutopayConfirm = function(){
@@ -120,8 +131,8 @@ $(document).ready(function(){
                 amountB = (data.type=='buy') ? numeral(data.give_amount).format(formatB) : numeral(data.get_amount).format(formatB);
             $('#infoA').html(amountA + '<br>' + assetA);
             $('#infoB').html(amountB + '<br>' + assetB);
-            $('#assetA-icon').attr('src', DW.XCHAIN_API + '/icon/' + assetA + '.png');
-            $('#assetB-icon').attr('src', DW.XCHAIN_API + '/icon/' + assetB + '.png');
+            $('#assetA-icon').attr('src', DW.EXPLORER_API + '/icon/' + assetA + '.png');
+            $('#assetB-icon').attr('src', DW.EXPLORER_API + '/icon/' + assetB + '.png');
             $('.order-type').html(data.type.charAt(0).toUpperCase() + data.type.slice(1));
             // Display additional options for auto-signing the DOGEpay transaction
             if(data.give_asset=='DOGE')
@@ -137,6 +148,9 @@ $(document).ready(function(){
             placement: 'bottom'
         }); 
 
+        // Handle updating the transaction fee based on actual tx size
+        updateTransactionSize();
+
     },100);
 
     // Display the correct confirmation option
@@ -149,6 +163,8 @@ $(document).ready(function(){
 
     // Submit form if user clicks 'Submit' button
     $('#btn-submit').click($.debounce(100,function(e){
+        if(DW.IGNORE_SUBMIT)
+            return;
         $('#create-order-form').submit();
     }));
 
@@ -187,18 +203,13 @@ $(document).ready(function(){
         if(errors.length){
             dialogMessage('<i class="fa fa-lg fa-fw fa-exclamation-circle"></i> Error(s)', errors.join('<br/>') );
         } else {
-            var network  = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
-                fee_sat  = getSatoshis(vals['fee-amount']),
-                get_sat  = getSatoshis(vals.get_amount),
-                give_sat = getSatoshis(vals.give_amount);
-                expires  = numeral(vals.expires).value(),
-                autopay  = (vals.autopay=='Y') ? 1 : 0;
+            var autopay  = (vals.autopay=='Y') ? 1 : 0;
             // Callback to run after broadcasting tx
             var doneCb = function(tx){
                 if(tx){
                     dialogClose('dialog-create-order');
                     dialogMessage('<i class="fa fa-lg fa-check"></i> Order Creation Successful', '<center>Your order has been broadcast to the network and should be placed shortly.' +
-                                  '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                                  '<br/><br/><a class="btn btn-success" href="' + DW.EXPLORER_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
                     // Add transaction to DOGEpay monitoring list
                     if(vals.give_asset=='DOGE'){
                         if(!DW.DOGEPAY_ORDERS[network])
@@ -217,10 +228,8 @@ $(document).ready(function(){
                     }
                 }
             }
-            cpOrder(network, vals.source, vals.get_asset, vals.give_asset, get_sat, give_sat, expires, fee_sat, doneCb);
+            generateTransaction(doneCb, true);
         }
-    })
-
-
+    });
 });
 </script>

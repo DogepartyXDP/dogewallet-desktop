@@ -59,36 +59,41 @@ DW.WALLET_BALANCES = JSON.parse(ls.getItem('walletBalances')) || [];
 DW.WALLET_HISTORY  = JSON.parse(ls.getItem('walletHistory'))  || [];
 
 // Define default server info
-DW.WALLET_SERVER_INFO = {
+DW.WALLET_SERVER_INFO_DEFAULT = {
     mainnet: {
-        host: 'api.dogeparty.net',
-        port: 4005,
+        host: 'public.tokenscan.io',
+        port: 4006,
         user: 'rpc',
         pass: 'rpc',
-        ssl: false,
-        api_host: 'dogeparty.xchain.io',
+        ssl: true,
+        api_host: 'dogeparty.tokenscan.io',
         api_ssl: true
     },
     testnet: {
-        host: 'api.dogeparty.net',
-        port: 14005,
+        host: 'public.tokenscan.io',
+        port: 14006,
         user: 'rpc',
         pass: 'rpc',
-        ssl: false,
-        api_host: 'dogeparty-testnet.xchain.io',
+        ssl: true,
+        api_host: 'dogeparty-testnet.tokenscan.io',
         api_ssl: true
     }
 };
+
+// Set server info to default server info
+DW.WALLET_SERVER_INFO = DW.WALLET_SERVER_INFO_DEFAULT;
 
 // Define the default and base markets for the Decentralized Exchange (DEX)
 DW.DEFAULT_MARKETS = ['DOGE','XDP'];
 DW.BASE_MARKETS    = JSON.parse(ls.getItem('walletMarkets')) || DW.DEFAULT_MARKETS;
 DW.MARKET_OPTIONS  = JSON.parse(ls.getItem('walletMarketOptions')) || [1,2]; // 1=named, 2=subasset, 3=numeric 
+DW.BASE_MARKETS    = DW.BASE_MARKETS.slice(0, 10); // Limit exchange market list to 10
 
 // Define default dispenser watchlist assets
 DW.DEFAULT_DISPENSERS = ['XDP'];
 DW.BASE_DISPENSERS    = JSON.parse(ls.getItem('walletDispensers')) || DW.DEFAULT_DISPENSERS;
 DW.DISPENSER_OPTIONS  = JSON.parse(ls.getItem('walletDispenserOptions')) || []; // 1=hide closed 
+DW.BASE_DISPENSERS    = DW.BASE_DISPENSERS.slice(0, 10); // Limit dispenser watchlist to 10
 // Define arrays to hold DOGEpay information
 DW.DOGEPAY_ORDERS  = JSON.parse(ls.getItem('dogepayOrders'))  || {}; // array of order tx_hashes to monitor for DOGEpay transactions
 DW.DOGEPAY_MATCHES = JSON.parse(ls.getItem('dogepayMatches')) || {}; // array of order matches that have seen/processed
@@ -133,9 +138,8 @@ DW.MARKET_DATA = {};
 // Define cache for oracles
 DW.ORACLES = {}; 
 
-// Cache for cards from NFT projects
-DW.NFT_CARDS = []; // placeholder 
-DW.NFT_DATA  = JSON.parse(ls.getItem('nftInfo')) || []; // placeholder for raw NFT data
+// Placeholder for NFT data
+DW.NFT_DATA = false;
 
 // Load any dust data encoding preferences (stored in sats)
 DW.DUST_SIZE_REGULAR  = JSON.parse(ls.getItem('dustSizeRegular')) || false;
@@ -163,6 +167,9 @@ DW.DONATE_AMOUNT  = ls.getItem('donateAmount')  || DW.DONATE_DEFAULT;
 // Load any auto-lock settings (default to 15 minutes)
 DW.WALLET_AUTOLOCK      = ls.getItem('walletAutoLock') || 15;
 DW.WALLET_LAST_UNLOCKED = Date.now();
+
+// Load UTXO usage preferences (default to use all UTXOS)
+DW.UNCONFIRMED_UTXOS = ls.getItem('unconfirmedUtxos') || 1;
 
 // Define cache for asset divisibility
 DW.ASSET_DIVISIBLE = {};
@@ -193,8 +200,8 @@ $(document).ready(function(){
     if(info)
         DW.WALLET_SERVER_INFO = JSON.parse(info);
 
-    // Setup the xchain API url
-    setXChainAPI(DW.WALLET_NETWORK);
+    // Setup the explorer API url
+    setExplorerAPI(DW.WALLET_NETWORK);
 
     // Initialize the wallet 
     initWallet();
@@ -208,8 +215,8 @@ function setTheme( theme ) {
     body.addClass(theme);        
 }
 
-// Handle getting XChain API url for given network
-function getXChainAPI( network ){
+// Handle getting explorer API url for given network
+function getExplorerAPI( network ){
     var name = (network==2||network=='testnet') ? 'testnet' : 'mainnet',
         o    = DW.WALLET_SERVER_INFO[name],
         url  = ((o.api_ssl) ? 'https' : 'http') + '://' + o.api_host;
@@ -217,8 +224,8 @@ function getXChainAPI( network ){
 }
 
 // Handle setting server information based off current network
-function setXChainAPI( network ){
-    DW.XCHAIN_API = getXChainAPI(network);
+function setExplorerAPI( network ){
+    DW.EXPLORER_API = getExplorerAPI(network);
 }
 
 // Handle checking for an updated wallet version
@@ -231,13 +238,19 @@ function checkWalletUpgrade(version, message){
         if(current){
             var a  = version.trim().split('.'),
                 b  = current.trim().split('.'),
+                majorA = parseInt(a[0]),
+                majorB = parseInt(b[0]),
+                minorA = parseInt(a[1]),
+                minorB = parseInt(b[1]),
+                patchA = parseInt(a[2]),
+                patchB = parseInt(b[2]),
                 update = false;
             // Check for any semantic versioning differences
-            if(parseInt(a[0])<parseInt(b[0])){        // Major
+            if(majorA < majorB){ // Major
                 update = true;
-            } else if(parseInt(a[1])<parseInt(b[1])){ // Minor
+            } else if(majorA == majorB && minorA < minorB){ // Minor
                 update = true;
-            } else if(parseInt(a[2])<parseInt(b[2])){ // Patch
+            } else if(majorA == majorB && minorA == minorB && patchA < patchB){ // Patch
                 update = true;
             }
             // If an update is available, handle notifying the user
@@ -296,8 +309,6 @@ function initWallet(){
     updateOracleList();
     // Populate the donation list
     updateDonationList();
-    // Populate DW.NFT_CARDS 
-    updateNFTCards();
 }
 
 // Reset/Remove wallet
@@ -559,10 +570,12 @@ function setWalletAddress( address, load=0 ){
     if(!info)
         info = addWalletAddress(address);
     // Save the label info to disk
-    DW.WALLET_ADDRESS_LABEL = info.label;
+    if(info){
+        DW.WALLET_ADDRESS_LABEL = info.label;
+        ls.setItem('walletAddressLabel', DW.WALLET_ADDRESS_LABEL);
+    }
     // Save updated information to disk
     ls.setItem('walletAddress', address);
-    ls.setItem('walletAddressLabel', info.label);
     ls.setItem('walletAddresses', JSON.stringify(DW.WALLET_ADDRESSES));
     // Update the wallet display to reflect the new address
     updateWalletOptions();
@@ -649,8 +662,8 @@ function setWalletNetwork(network, load=false){
     DW.DISPENSERS       = {};
     DW.ASSET_INFO       = {};
     DW.REPUTATION_INFO  = {};
-    // Update the xchain API url
-    setXChainAPI(network);
+    // Update the explorer API url
+    setExplorerAPI(network);
     // Set current address to first address in wallet
     setWalletAddress(getWalletAddress(0), load);
 }
@@ -818,7 +831,7 @@ function getAssetPrice(id, full){
     return price;
 }
 
-// Handle retrieving asset information from xchain and handing the data to a callback function
+// Handle retrieving asset information from explorer and handing the data to a callback function
 // We cache the information between blocks to reduce the number of duplicate API calls
 function getAssetInfo(asset, callback, force){
     var net    = (DW.WALLET_NETWORK==2)  ? 'testnet' : 'mainnet',
@@ -830,11 +843,12 @@ function getAssetInfo(asset, callback, force){
     if(!DW.ASSET_INFO[asset])
         DW.ASSET_INFO[asset] = {}
     if(update){
-        $.getJSON( DW.XCHAIN_API + '/api/asset/' + asset, function( data ){
-            data.block = block;
-            DW.ASSET_INFO[asset] = data;
+        $.getJSON( DW.EXPLORER_API + '/api/asset/' + asset, function( o ){
+            o.block = block;
+            o.collapsed = data.collapsed;
+            DW.ASSET_INFO[asset] = o;
             if(typeof callback === 'function')
-                callback(data);
+                callback(o);
         });
     } else {
         callback(data);
@@ -876,7 +890,6 @@ function checkUpdateWallet(){
         if(typeof updateDispensersLists === 'function')
             updateDispensersLists();
     }
-    // updateNFTInfo();
     checkAutoLock();
 };
 
@@ -949,7 +962,7 @@ function checkDogepayTransactions( force ){
             $.each(DW.DOGEPAY_ORDERS[network],  function(address, orders){
                 // Only request data if we have orders to monitor
                 if(Object.keys(orders).length){
-                    // Set XChain url
+                    // Set Explorer url
                     var info = DW.WALLET_SERVER_INFO[network],
                         host = ((info.api_ssl) ? 'https' : 'http') + '://' + info.api_host;
                         url  = host + '/api/order_matches/' + address;
@@ -1025,7 +1038,7 @@ function cleanupDogepay(){
             ls.setItem('dogepayQueue',JSON.stringify(DW.DOGEPAY_QUEUE));
         // Remove expired orders from DOGEPAY_ORDERS and DOGEPAY_MATCHES
         if((parseInt(last) + ms)  <= Date.now()){
-            var host = getXChainAPI(network);
+            var host = getExplorerAPI(network);
             $.each(DW.DOGEPAY_ORDERS[network], function(address, orders){
                 $.each(orders, function(order, autopay){
                     $.getJSON( host + '/api/tx/' + order, function(data){
@@ -1136,7 +1149,7 @@ function autoDogepay(network, o){
         // Only proceed if we have a valid tx hash for the broadcast tx... otherwise leave in queue so we can try again
         if(tx){
             dialogMessage('<i class="fa fa-lg fa-check"></i> DOGEPay Successful', '<center>Your DOGE payment has been broadcast to the network and your order should complete shortly.' +
-                          '<br/><br/><a class="btn btn-success" href="' + DW.XCHAIN_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
+                          '<br/><br/><a class="btn btn-success" href="' + DW.EXPLORER_API + '/tx/' + tx + '" target="_blank">View Transaction</a></center>');
             // Remove the order match from the queue and check the queue again after a brief delay
             removeFromDogepayQueue(o.tx0_hash, o.tx1_hash);
             setTimeout(function(){ processDogepayQueue(); },1000);
@@ -1150,9 +1163,9 @@ function autoDogepay(network, o){
 // Handle loading address balance data, saving to memory, and passing to a callback function
 function updateBalances(address, page, full, callback){
     var page  = (page) ? page : 1,
-        limit = 500, // max records returned by xchain
+        limit = 500, // max records returned by explorer
         count = (page==1) ? 0 : ((page-1)*limit),
-        url   = DW.XCHAIN_API + '/api/balances/' + address;
+        url   = DW.EXPLORER_API + '/api/balances/' + address;
     $.getJSON(url + '/' + page + '/' + limit, function(o){
         if(o.data){
             o.data.forEach(function(item){
@@ -1460,7 +1473,7 @@ function updateWalletHistory( address, force ){
         });
         // Handle updating XDP Transactions
         $.each(['/api/history/', '/api/mempool/'], function(idx, endpoint){
-            $.getJSON(DW.XCHAIN_API + endpoint + addr, function( data ){
+            $.getJSON(DW.EXPLORER_API + endpoint + addr, function( data ){
                 data.data.forEach(function(item){
                     var quantity = item.quantity,
                         tstamp   = item.timestamp,
@@ -1543,13 +1556,13 @@ function getAddressHistory(address, asset=''){
     return info;
 }
 
-// Handle updating basic wallet information via a call to xchain.io/api/network
+// Handle updating basic wallet information via a call to explorer API
 function updateNetworkInfo( force ){
     var last = ls.getItem('networkInfoLastUpdated') || 0,
         ms   = 300000; // 5 minutes
     if((parseInt(last) + ms)  <= Date.now() || force ){
         // DOGE/USD Price
-        $.getJSON( DW.XCHAIN_API + '/api/network', function( data ){
+        $.getJSON( DW.EXPLORER_API + '/api/network', function( data ){
             if(data){
                 DW.NETWORK_INFO = data;
                 ls.setItem('networkInfo',JSON.stringify(data));
@@ -1730,6 +1743,7 @@ function updateBalancesList(){
             }
             var show = (filter!='') ? false : true;
             item.isSearch = (filter!='') ? true : false;
+            item.type = type;
             // Filter results based on search
             if(filter!='')
                 show = (asset.search(new RegExp(filter, "i")) != -1) ? true : false;
@@ -1802,9 +1816,9 @@ function getBalanceHtml(data){
     var html_collapse = (isParent && !isSearch) ? '<td align="right"><a href="#" class="balances-list-collapsible" >' + isCollapsed + '</a></td>' : '';
     // Don't display the item if this is a subasset and the parent asset is collapsed (unless we are doing a search)
     var html_style    = (parent && parentInfo && parentInfo.collapsed == false && !isSearch) ? 'display: none;' : '';
-    var html =  '<li class="balances-list-item ' + data.cls + '" data-asset="' + data.asset + '" data-parent="' + parent + '" style="' + html_style + '">' +
+    var html =  '<li class="balances-list-item ' + data.cls + '" data-asset="' + data.asset + '" data-type="' + data.type + '" data-parent="' + parent + '" style="' + html_style + '">' +
                 '    <div class="balances-list-icon' + ((parentInfo && data.isSearch != true) ? ' indented' : '') + '">' +
-                '        <img class="lazy-load" data-src="' + DW.XCHAIN_API + '/icon/' + data.icon + '.png" src="' + DW.XCHAIN_API + '/icon/XDP.png">' +
+                '        <img class="lazy-load" data-src="' + DW.EXPLORER_API + '/icon/' + data.icon + '.png" src="' + DW.EXPLORER_API + '/icon/XCP.png">' +
                 '    </div>' +
                 '    <div class="balances-list-info">' +
                 '        <table width="100%">' +
@@ -1894,8 +1908,8 @@ function getHistoryHtml(data){
         src = 'images/icons/dividend.png';
     } else if(type=='cancel'){
         src = 'images/icons/cancel.png';
-    } else if((type=='send'||type=='order'||type=='issuance'||type=='destruction') && data.asset!='DOGE'){
-        src = DW.XCHAIN_API + '/icon/'  + String(data.icon).toUpperCase() + '.png';
+    } else if((type=='send'||type=='order'||type=='issuance'||type=='destruction') && data.asset!='BTC'){
+        src = DW.EXPLORER_API + '/icon/'  + String(data.icon).toUpperCase() + '.png';
     } else if(type=='sweep'){
         src = 'images/icons/sweep.png';
     }
@@ -2021,13 +2035,15 @@ function loadAssetInfo(asset){
         balance  = getAddressBalance(DW.WALLET_ADDRESS, asset),
         icon     = (balance && balance.asset) ? balance.asset : asset,
         feedback = $('#asset-reputation-feedback');
+        // Placeholder for NFT image/data        
+        DW.NFT_DATA = false; 
     if(balance){
         // Reset the asset info so we start fresh (prevent old info showing if we get failures)
         resetAssetInfo();
         // Name & Icon
         $('#asset-name').text(asset);
-        $('#asset-icon').attr('src', DW.XCHAIN_API + '/icon/' + icon + '.png');
-        $('#asset-info-more').attr('href', DW.XCHAIN_API + '/asset/' + asset);
+        $('#asset-icon').attr('src', DW.EXPLORER_API + '/icon/' + icon + '.png');
+        $('#asset-info-more').attr('href', DW.EXPLORER_API + '/asset/' + asset);
         // Estimated Value
         var val = balance.estimated_value;
         $('#asset-value-doge').text(numeral(val.doge).format('0,0.00000000'));
@@ -2152,12 +2168,12 @@ function loadExtendedInfo(data){
         ipfs  = /^ipfs:/i,
         desc  = data.description,
         arr   = desc.split(';');
+    // Handle displaying green banner for any projects
+    if(data.projects && data.projects.length)
+        showProjectInfo(data);
     // Use cached JSON if we have it
     if(data.json)
         showExtendedAssetInfo(data.json);
-    // Display NFTs 
-    if(isNFT(data.asset))
-        showExtendedAssetInfo(data);
     // Handle loading any JSON, IPFS, Ordinals content
     if(json.test(desc) || ipfs.test(desc) || ord.test(desc)){
         if(ipfs.test(desc)){
@@ -2170,12 +2186,15 @@ function loadExtendedInfo(data){
         } else {
             url = 'https://' + arr[0].replace('https://','').replace('http://','');
         }
+        // If we have an NFT image, display it immediately
+        if(DW.NFT_DATA!=false)
+            showExtendedAssetInfo(data);
         // Try to make a request for the JSON directly (might fail due to missing headers, etc)
         $.getJSON( url, function( o ){ 
             showExtendedAssetInfo(o);
         }).fail(function(){
-            // Try to request the JSON through the xchain relay
-            var url = DW.XCHAIN_API + '/relay?url=' + desc;
+            // Try to request the JSON through the explorer relay
+            var url = DW.EXPLORER_API + '/relay?url=' + desc;
             $.getJSON( url, function( o ){ 
                 showExtendedAssetInfo(o);
             });
@@ -2184,6 +2203,30 @@ function loadExtendedInfo(data){
         showExtendedAssetInfo(data);
     }
 
+}
+
+// Hande displaying green banner for any projects associated with this asset
+function showProjectInfo(info){
+    var html = '';
+    info.projects.forEach(function(project){
+        html += '<div class="alert alert-success bold text-center" style="margin: 15px 15px 15px 15px;">';
+        if(project.name=='Assetic'){
+            html += 'This is officially an <a href="' + project.site + '" target="_blank">ASS</a>'
+        } else {
+            html += '    This is an official card in the ';
+            if(project.site){
+                html += '<a href="' + project.site + '" target="_blank">' + project.name + '</a> project';
+            } else {
+                html += project.name;
+            }
+        }
+        html += '</div>';
+        // Store the NFT data for use 
+        if(!DW.NFT_DATA && project.image)
+            DW.NFT_DATA = project.image;
+    });
+    $('#additionalInfoNotAvailable').hide();
+    $('#officialCard').html(html).show();
 }
 
 // Handle building out the HTML for the address list
@@ -2303,6 +2346,8 @@ var getFormType = function(){
         type = 'issue-supply';
     else if($('#lock-supply-form').length)
         type = 'lock-supply';
+    else if($('#reset-supply-form').length)
+        type = 'reset-supply';
     else if($('#transfer-ownership-form').length)
         type = 'transfer-ownership';
     else if($('#dividend-form').length)
@@ -2856,8 +2901,9 @@ function setAdvancedCreateParams(data){
     // Only apply advanced params to 'create_' requests
     if(data.method.indexOf('create_')!=-1){
         var o = data.params;
-        // Allow usage of unconfirmed inputs (enables daisy-chaining pending txs)
-        o.allow_unconfirmed_inputs = true;
+        // Pass forward UTXO usage preferences
+        if(DW.UNCONFIRMED_UTXOS)
+            o.allow_unconfirmed_inputs = true;
         // Pass forward dust preferences in satoshis
         if(DW.DUST_SIZE_REGULAR)
             o.regular_dust_size = parseInt(DW.DUST_SIZE_REGULAR);
@@ -2889,10 +2935,14 @@ function cpRequest(network, data, callback){
             'Authorization': 'Basic ' + auth, 
             'Content-Type': 'application/json; charset=UTF-8'
         },
-        success: function(data){
-            if(typeof callback === 'function')
-                callback(data);
-        }
+        complete: function(data, status){
+            if(status=='success'){
+                if(typeof callback === 'function')
+                    callback(data.responseJSON);
+            } else if(status=='error'){
+                updateTransactionStatus('error', 'Dogeparty API communication error!');
+            }
+        },
     });
 }
 
@@ -2963,7 +3013,7 @@ function createIssuance(network, source, asset, quantity, divisible, description
             asset: asset,
             quantity: parseInt(quantity),
             divisible: (divisible) ? 1 : 0,
-            description:  (description) ? description : null,
+            description: (description=='LOCK') ? null : description,
             transfer_destination: (destination) ? destination : null,
             reset: (reset) ? true : false,
             lock: (description=='LOCK') ? true : false,
@@ -3166,10 +3216,10 @@ function createDispenser(network, source, destination, asset, escrow_amount, giv
         jsonrpc: "2.0",
         id: 0
     };
-    // Handle opening dispensers on empty addresses by changing status=1 and passing open_address
+    // Handle opening and closing dispensers on empty addresses by passing open_address
     if(source!=destination){
         data.params.open_address = destination;
-        data.params.status = 1;
+        data.params.status = (status==10) ? 10 : 1;
     }
     // Handle setting up an oracled dispenser by passing forward the oracle address
     if(oracle_address!='')
@@ -3393,10 +3443,10 @@ function broadcastTransaction(network, tx, callback){
         }, 5000);
     }
     console.log('signed transaction=', tx);
-    // First try to broadcast using the XChain API
+    // First try to broadcast using the Explorer API
     $.ajax({
         type: "POST",
-        url: DW.XCHAIN_API +  '/api/send_tx',
+        url: DW.EXPLORER_API +  '/api/send_tx',
         data: { 
             tx_hex: tx 
         },
@@ -3410,7 +3460,7 @@ function broadcastTransaction(network, tx, callback){
                 if(txid)
                     console.log('Broadcasted transaction hash=',txid);
             } else {
-                // If the request to XChain API failed, fallback to blockcypher API
+                // If the request to explorer API failed, fallback to blockcypher API
                 var net = (network=='testnet') ? 'test3' : 'main',
                     url  = 'https://api.blockcypher.com/v1/doge/'+ net +'/txs/push';
                 $.ajax({
@@ -4000,6 +4050,20 @@ function dialogBroadcastMessage(){
 }
 
 // 'Create Order' dialog box
+function dialogBuyAccess(){
+    // Make sure wallet is unlocked
+    if(dialogCheckLocked('create an order'))
+        return;
+    BootstrapDialog.show({
+        type: 'type-default',
+        id: 'dialog-buy-access',
+        closeByBackdrop: false,
+        title: '<i class="fa fa-fw fa-exclamation-circle"></i> Get Access Now',
+        message: $('<div></div>').load('html/buyaccess.html'),
+    });
+}
+
+// 'Create Order' dialog box
 function dialogOrder(){
     // Make sure wallet is unlocked
     if(dialogCheckLocked('create an order'))
@@ -4150,7 +4214,7 @@ function dialogCancelOrder(){
         type: 'type-default',
         id: 'dialog-cancel-order',
         closeByBackdrop: false,
-        title: '<i class="fa fa-fw fa-ban"></i> Confirm Cancel Order?',
+        title: '<i class="fa fa-fw fa-ban"></i> Cancel Order',
         message: $('<div></div>').load('html/exchange/cancel.html')
     });
 }
@@ -4164,7 +4228,7 @@ function dialogCloseDispenser(){
         type: 'type-default',
         id: 'dialog-close-dispenser',
         closeByBackdrop: false,
-        title: '<i class="fa fa-fw fa-close"></i> Confirm Close Dispenser?',
+        title: '<i class="fa fa-fw fa-close"></i> Close Dispenser',
         message: $('<div></div>').load('html/dispensers/close.html')
     });
 }
@@ -4408,6 +4472,7 @@ function displayContextMenu(event){
     var el = $( event.target ).closest('.balances-list-item');
     if(el.length!=0){
         var asset = el.attr('data-asset'),
+            type  = el.attr('data-type'),
             mnu   = new nw.Menu();
         // Save asset data so it can be accessed in dialog boxes
         DW.DIALOG_DATA = { token: asset };
@@ -4455,7 +4520,7 @@ function displayContextMenu(event){
         }
         if(asset!='DOGE'){
             mnu.append(new nw.MenuItem({ type: 'separator' }));
-            if(asset!='XDP'){
+            if(asset!='XCP'){
                 mnu.append(new nw.MenuItem({ 
                     label: 'Issue ' + asset + ' Supply',
                     click: function(){ dialogIssueSupply(); }
@@ -4489,23 +4554,9 @@ function displayContextMenu(event){
         var tx   = el.attr('txhash'),
             mnu  = new nw.Menu();
         mnu.append(new nw.MenuItem({ 
-            label: 'View Transaction',
+            label: 'View on TokenScan.io',
             click: function(){ 
-                var txhash = el.attr('txhash'),
-                    txtype = el.attr('txtype'),
-                    asset  = el.attr('asset');
-                loadTransactionInfo({
-                    tx: txhash, 
-                    type: txtype, 
-                    asset: asset
-                });
-            }
-        }));
-        mnu.append(new nw.MenuItem({ type: 'separator' }));
-        mnu.append(new nw.MenuItem({ 
-            label: 'View on XChain.io',
-            click: function(){ 
-                var url  = DW.XCHAIN_API + '/tx/' + tx;
+                var url  = DW.EXPLORER_API + '/tx/' + tx;
                 nw.Shell.openExternal(url);
             }
         }));
@@ -4842,7 +4893,7 @@ function updateMarkets(market, page, full, callback){
     var page  = (page) ? page : 1,
         limit = 1000,
         count = (page==1) ? 0 : ((page-1)*limit),
-        url   = DW.XCHAIN_API + '/api/markets';
+        url   = DW.EXPLORER_API + '/api/markets';
     if(market)
         url += '/' + market;
     $.getJSON(url + '/' + page + '/' + limit, function(o){
@@ -5003,7 +5054,7 @@ function updateMarket(market, force){
 
 // Handle updating market 'basics' data
 function updateMarketBasics( market ){
-    $.getJSON(DW.XCHAIN_API + '/api/market/' + market, function(o){
+    $.getJSON(DW.EXPLORER_API + '/api/market/' + market, function(o){
         if(o.error){
             console.log('Error: ',o.error);
         } else {
@@ -5015,7 +5066,7 @@ function updateMarketBasics( market ){
 
 // Handle updating market 'Orderbook' data
 function updateMarketOrderbook( market ){
-    $.getJSON(DW.XCHAIN_API + '/api/market/' + market + '/orderbook', function(o){
+    $.getJSON(DW.EXPLORER_API + '/api/market/' + market + '/orderbook', function(o){
         if(o.error){
             console.log('Error: ',o.error);
         } else {
@@ -5027,7 +5078,7 @@ function updateMarketOrderbook( market ){
 
 // Handle updating market history/trade data
 function updateMarketHistory(market, address){
-    var base = DW.XCHAIN_API + '/api/market/' + market + '/history',
+    var base = DW.EXPLORER_API + '/api/market/' + market + '/history',
         url  = (address) ? base + '/' + address : base;
     // console.log('updateMarketHistory url=',url);
     $.getJSON(url, function(o){
@@ -5048,7 +5099,7 @@ function updateMarketHistory(market, address){
 function updateMarketOrders(market, address){
     // console.log('updateMarketOrders market,address=',market,address);
     // Get Basic Market information (name, price, volume, etc)
-    $.getJSON(DW.XCHAIN_API + '/api/market/' + market + '/orders/' + address, function(o){
+    $.getJSON(DW.EXPLORER_API + '/api/market/' + market + '/orders/' + address, function(o){
         if(o.error){
             console.log('Error: ',o.error);
         } else {
@@ -5068,8 +5119,8 @@ function updateMarketBasicsView( market ){
         fullname = (o.longname!='') ? o.longname : o.name;
         fmt      = (o.price.last.indexOf('.')!=-1) ? '0,0.00000000' : '0,0';
     $('div.market-name').text(name + ' EXCHANGE');
-    $('.market-icon img').attr('src', DW.XCHAIN_API + '/icon/' + assets[0] + '.png');
-    $('.market-pair img').attr('src', DW.XCHAIN_API + '/icon/' + assets[1] + '.png');
+    $('.market-icon img').attr('src', DW.EXPLORER_API + '/icon/' + assets[0] + '.png');
+    $('.market-pair img').attr('src', DW.EXPLORER_API + '/icon/' + assets[1] + '.png');
     $('.market-pair span').text(o.name);
     $('#last-price').text(numeral(o.price.last).format(fmt));
     var pct = numeral(o['24hour'].percent_change).format('0,0.00') + '%',
@@ -5211,7 +5262,7 @@ function updateMarketHistoryView(market, address){
         createdRow: function( row, data, idx ){
             var fmt = '0,0.00000000'
             var cls = (data[1]=='sell') ? 'red' : 'green';
-            $('td', row).eq(0).html('<a href="' + DW.XCHAIN_API + '/tx/' + data[5] + '" target="_blank">' + moment.unix(data[0]).format('MM/DD/YY HH:mm') + '</a>');
+            $('td', row).eq(0).html('<a href="' + DW.EXPLORER_API + '/tx/' + data[5] + '" target="_blank">' + moment.unix(data[0]).format('MM/DD/YY HH:mm') + '</a>');
             $('td', row).eq(1).removeClass('red green').addClass(cls);
             $('td', row).eq(2).text(numeral(data[2]).format(fmt));
             $('td', row).eq(3).text(numeral(data[3]).format(fmt));
@@ -5246,8 +5297,8 @@ function updateMarketAssetInfo(market){
                 }
                 xdp.text(numeral(o.estimated_value.xdp).format('0,0.00000000'));
                 usd.text(numeral(o.estimated_value.usd).format('0,0.00'));
-                icon.attr('src',DW.XCHAIN_API + '/icon/' + asset + '.png');
-                more.attr('href',DW.XCHAIN_API + '/asset/' + asset);
+                icon.attr('src',DW.EXPLORER_API + '/icon/' + asset + '.png');
+                more.attr('href',DW.EXPLORER_API + '/asset/' + asset);
             }
         });
         // Handle requesting reputation info from coindaddy.io
@@ -5307,7 +5358,7 @@ function updateMarketOrdersView(market, address){
                 cls = (data[1]=='sell') ? 'red' : 'green',
                 blk = 
                 txt = '<a data-toggle="tooltip" data-placement="right" title="Order expires at block #' + numeral(data[6]).format('0,0') + '"><i class="fa fa-lg fa-info-circle"></i></a>';
-            txt += '<a href="' + DW.XCHAIN_API + '/tx/' + data[5] + '" target="_blank">' + moment.unix(data[0]).format('MM/DD/YY HH:mm') + '</a>';;
+            txt += '<a href="' + DW.EXPLORER_API + '/tx/' + data[5] + '" target="_blank">' + moment.unix(data[0]).format('MM/DD/YY HH:mm') + '</a>';;
             $('td', row).eq(0).html(txt);
             $('td', row).eq(1).removeClass('red green').addClass(cls);
             $('td', row).eq(2).text(numeral(data[2]).format(fmt));
@@ -5323,7 +5374,7 @@ function updateMarketChartData(market, page, full, callback){
     var page  = (page) ? page : 1,
         limit = 2500,
         count = (page==1) ? 0 : ((page-1)*limit),
-        url   = DW.XCHAIN_API + '/api/market/' + market + '/chart';
+        url   = DW.EXPLORER_API + '/api/market/' + market + '/chart';
     // Reset any stored chart data
     if(full && page==1)
         DW.RAW_CHART_DATA = [];
@@ -5415,7 +5466,7 @@ function getDispensersRowCount(){
 // Handle adding a market tab and content table
 function addDispenserWatchlist(asset){
     var id      = String(asset).replace(/\./g,'-'),
-        tab     = '<li class="tab" data-asset="' + asset +'"><a href="#' + id + '" data-toggle="tab"><img src="' + DW.XCHAIN_API + '/icon/' + asset + '.png" class="fw-icon-20"> ' + asset + '</a></li>',
+        tab     = '<li class="tab" data-asset="' + asset +'"><a href="#' + id + '" data-toggle="tab"><img src="' + DW.EXPLORER_API + '/icon/' + asset + '.png" class="fw-icon-20"> ' + asset + '</a></li>',
         content = '<div class="tab-pane" id="' + id + '">' +
                   '    <div class="panel panel-default table-responsive">' +
                   '        <table class="datatable table table-striped cell-border table-hover table-condensed text-right" width="100%">' +
@@ -5517,7 +5568,7 @@ function updateDispensersList(query, page, callback){
     var page  = (page) ? page : 1,
         limit = 100,
         count = (page==1) ? 0 : ((page-1)*limit),
-        url   = DW.XCHAIN_API + '/api/dispensers/' + query ;
+        url   = DW.EXPLORER_API + '/api/dispensers/' + query + '/' + page + '/' + limit;
     // Only display open dispensers for asset watchlists
     if(!isValidAddress(query))
         url += '?status=open';
@@ -6015,6 +6066,9 @@ function showAssetArtwork(o){
             image = (large) ? large.data : (standard) ? standard.data : first.data;
             title = (large) ? large.name : (standard) ? standard.name : first.name;
         }
+        // Force usage of project NFT image if we have one
+        if(DW.NFT_DATA)
+            image = DW.EXPLORER_API + '/img/cards/' + DW.NFT_DATA;
         // Extract audio from audio array
         if(o.audio.length){
             var m4a   = getArrayItemByType(o.audio, 'm4a'),
@@ -6088,28 +6142,6 @@ function showAssetArtwork(o){
             if(videos.indexOf(ext)!=-1)
                 video = url;
         }
-    }
-    // Handle supporting NFTs (Non-Fungible Tokens) from various projects
-    if(isNFT(o.asset)){
-        var info  = getNFTInfo(o.asset),
-            title = (title && title!='') ? title : false,
-            html = '';
-        // Loop through projects array and build out list of projects card is associated with
-        info.projects.forEach(function(project){
-            html += '<div class="alert alert-success bold text-center" style="margin: 15px 15px 15px 15px;">';
-            html += '    This is an official card in the ';
-            if(project.site){
-                html += '<a href="' + project.site + '" target="_blank">' + project.project + '</a> project';
-            } else {
-                html += project.project;
-            }
-            html += '</div>';
-        });
-        // Force display image to use image from project (overrides JSON)
-        // Except in the case of 'stamp', since image is already correct
-        if(service!='stamp')
-            image = DW.XCHAIN_API + '/img/cards/' + info.image;
-        $('#officialCard').html(html).show();
     }
     // If we have a title, display it
     if(title){
@@ -6205,7 +6237,7 @@ function showAssetArtwork(o){
 function setAssetIcon(image){
     var url = image;
     // var url = relay + image;
-    // var url = DW.XCHAIN_API + '/relay?url=' + image;
+    // var url = DW.EXPLORER_API + '/relay?url=' + image;
     $.get( url, function(data){
         if(String(data).trim().length)
             $('#assetIcon').attr('src', 'data:image/png;base64,' + data);
@@ -6223,110 +6255,6 @@ function base64ToHex(str) {
     return result;
 }
 
-// Handle checking if an asset is an NFT
-function isNFT(asset){
-    var asset_upper = String(asset).toUpperCase();
-    if(DW.NFT_CARDS[asset] || DW.NFT_CARDS[asset_upper])
-        return true;
-    return false;
-}
-
-// Handle getting the image for an NFT
-function getNFTImage(asset){
-    if(DW.NFT_CARDS[asset])
-        return asset + "." + DW.NFT_CARDS[asset];
-    var asset_upper = String(asset).toUpperCase();
-    if(DW.NFT_CARDS[asset_upper])
-        return asset_upper + "." + DW.NFT_CARDS[asset_upper];
-    return false    
-}
-
-// Handle returning info on an NFT (asset, image, project, website, etc)
-function getNFTInfo(asset){
-    var info = {
-        asset: asset,
-        image: getNFTImage(asset),
-        projects: []
-    };
-    DW.NFT_DATA.forEach(function(project){
-        if(project.cards.indexOf(info.image)!=-1){
-            info.projects.push({
-                project: project.name,
-                logo: project.logo,
-                site: project.site
-            })
-        }
-    });
-    return info;
-}
-
-// Handle updating basic wallet information via a call to xchain.io/api/network
-function updateNFTInfo( force ){
-    var last = ls.getItem('nftInfoLastUpdated') || 0,
-        ms   = 21600000; // 6 hours
-    if((parseInt(last) + ms)  <= Date.now() || force ){
-        // BTC/USD Price
-        $.getJSON( DW.XCHAIN_API + '/json/nfts.json', function( data ){
-            if(data){
-                DW.NFT_DATA = data;
-                ls.setItem('nftInfo',JSON.stringify(data));
-                ls.setItem('nftInfoLastUpdated', Date.now());
-                updateNFTCards();
-            }
-        });
-    }
-}
-
-// Handld building out the DW.NFT_CARDS assoc array
-function updateNFTCards(){
-    // Loop through NFT_DATA array and build out NFT_CARDS array
-    DW.NFT_DATA.forEach(function(project){
-        project.cards.forEach(function(card){
-            var a = card.split('.'),
-                b = a.slice(0, -1);
-            name = b.join('.');
-            ext  = a[a.length - 1];
-            DW.NFT_CARDS[name] = ext;
-        });
-    });    
-}
-
-// Handle confirming issuance (and any hidden data encoding costs) with the user
-function confirmIssuance(title, msg, network, source, asset, quantity, divisible, description, destination, fee, reset, successCallback){
-    var title = (title) ? title : '<i class="fa fa-lg fa-fw fa-question-circle"></i> Confirm  Issuance?',
-        msg   = (msg) ? msg : '';
-    updateTransactionStatus('pending', 'Checking data encoding fees on issuance...');
-    createIssuance(network, source, asset, quantity, divisible, description, destination, fee, reset, function(o){
-        if(o && o.result){
-            // Clear status message 
-            updateTransactionStatus('clear', '');
-            //decode the transaction
-            var tx   = bitcoinjs.Transaction.fromHex(o.result),
-                doge = getAssetPrice('DOGE',true),
-                num  = 0,
-                usd  = 0;
-            // Loop through outputs and sum up values
-            tx.outs.slice(0, -1).forEach(function(out){
-                num += out.value;
-            });
-            // Confirm the action with the user
-            if(num){
-                num = numeral(num * 0.00000001).format('0,0.00000000');
-                usd = numeral(num * doge.price_usd).format('0,0.00');
-                msg += '<br><br><div class="alert alert-warning" role="alert">This will include an additional fee of ' + num + ' DOGE ($' + usd + ') <br>needed to encode the data to the Dogecoin (DOGE) blockchain.</div>';
-            }
-            dialogConfirm(title, '<center>' + msg + '</center>', false, true, function(){
-                cpIssuance(network, source, asset, quantity, divisible, description, destination, fee, reset, function(tx){
-                    if(tx)
-                        successCallback(tx);
-                });
-            });
-        } else {
-            updateTransactionStatus('error', 'Error communicating with the Dogeparty API!');
-            cbError(o,'Error communicating with the Dogeparty API');
-        }
-    });
-}
 
 // Handle converting data into an XML string
 function xmlToString(xmlData) { 
@@ -6360,6 +6288,9 @@ function checkDonate(network, source, destination, unsignedTx){
     var net    = (network=='testnet') ? 'testnet' : 'mainnet', 
         donate = false,
         change = false;
+    // Return untouched tx if the ADS system is temporarily disabled (fee calculation requests, etc)
+    if(DW.ADS_DISABLE)
+        return unsignedTx;
     // Increase the donation tx counter
     DW.DONATE_COUNT++;
     // If the donation system is enabled, check if we should donate on this tx
@@ -6460,3 +6391,77 @@ function checkDonate(network, source, destination, unsignedTx){
     }
     return unsignedTx;
 }
+
+// Function to handle generating transactions to determine actual tx size (used in fee estimation)
+function updateTransactionSize(additionalSize=0){
+    var submit = $('#btn-submit');
+    // Disable submit button and set flag to ignore clicks
+    DW.IGNORE_SUBMIT = true;
+    submit.addClass("disabled")
+    updateTransactionStatus('pending', 'Calculating transaction fees...');
+    generateTransaction(function(o){
+        if(o && o.result){
+            var network = (DW.WALLET_NETWORK==2) ? 'testnet' : 'mainnet',
+                source  = DW.WALLET_ADDRESS,
+                dest    = (DW.SEND_DESTINATIONS) ? DW.SEND_DESTINATIONS : source;
+            // Set flag to disable ADS system for tx fee calculations
+            DW.ADS_DISABLE = true;
+            // Sign the tx, so we can get the actual transaction size
+            signTransaction(network, source, dest, o.result, function(signedTx){
+                var txHex = (signedTx) ? signedTx : o.result;
+                    tx    = bitcoinjs.Transaction.fromHex(txHex),
+                    sz    = tx.virtualSize();
+                // Re-Enable the ADS system
+                DW.ADS_DISABLE = false;
+                // If we failed to get unsigned tx, add 200 bytes more to account for signatures
+                if(!signedTx)
+                    sz = sz + 200;
+                // Add any additional tx size to the total size (MPMA Sends, etc)
+                if(additionalSize > 0)
+                    sz = sz + additionalSize;
+                $('#tx-size').val(sz);
+                $('#tx-hex').val(o.result);
+                updateTransactionStatus('clear');
+                updateMinersFee();
+                // Enable submit button and set flag to ignore clicks
+                DW.IGNORE_SUBMIT = false;
+                submit.removeClass("disabled")
+            });
+        } else {
+            updateTransactionStatus('clear');
+            // Enable submit button and set flag to ignore clicks
+            DW.IGNORE_SUBMIT = false;
+            submit.removeClass("disabled")
+        }
+    });
+}
+
+// Handle determing any additional data encoding costs above the miners fee
+function getDataEncodingCost(txHex){
+    // decode the transaction
+    var tx  = bitcoinjs.Transaction.fromHex(txHex),
+        num = 0;
+    // Loop through outputs and sum up values (assume last output is change and ignore it)
+    tx.outs.slice(0, -1).forEach(function(out){
+        num += out.value;
+    });
+    return num;
+}
+
+// Handle getting a confirmation message which includes any additional data encoding costs
+function getConfirmationMessage(msg=null, data=null){
+    var msg = (msg) ? msg : '',        
+        doge = getAssetPrice('DOGE',true),
+        fee = 0,
+        usd = 0;
+    if(data && data['tx-hex'])
+        fee = getDataEncodingCost(data['tx-hex']);
+    // If there are data encoding fees associated with this tx, display them to user
+    if(fee){
+        fee = numeral(fee * 0.00000001).format('0,0.00000000');
+        usd = numeral(fee * doge.price_usd).format('0,0.00');
+        msg += '<br><div class="alert alert-warning text-center" role="alert">This will include an additional fee of ' + fee + ' DOGE ($' + usd + ') <br>needed to encode the data to the Dogecoin (DOGE) blockchain.</div>';
+    }
+    return msg;
+}
+

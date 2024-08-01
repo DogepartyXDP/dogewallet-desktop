@@ -51,11 +51,11 @@ $(document).ready(function(){
         percent = 0;
 
     // Update bounty address and amount
-    $('#bounty-address').html('<a href="' + DW.XCHAIN_API + '/address/' + address + '" target="_blank">' + address + '</a>')
+    $('#bounty-address').html('<a href="' + DW.EXPLORER_API + '/address/' + address + '" target="_blank">' + address + '</a>')
     $('#bounty-amount').html(numeral(bounty).format('0,0') + ' XDP');
 
     // Lookup the current balance at the bounty address
-    $.getJSON(DW.XCHAIN_API + '/api/balances/' + address, function(o){
+    $.getJSON(DW.EXPLORER_API + '/api/balances/' + address, function(o){
         if(o.address==address){
             o.data.forEach(function(item){
                 if(item.asset=='XDP'){

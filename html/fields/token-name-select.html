@@ -26,10 +26,10 @@ $(document).ready(function(){
         el       = $('#token-name-select');
     // Force "DOGE" to be the only option for burning
     if(type=='burn'){
-        html += '<option data-content="<img src=\'' + DW.XCHAIN_API + '/icon/DOGE.png\' class=\'fw-icon-20 margin-right-5\'>DOGE">DOGE</option>';
+        html += '<option data-content="<img src=\'' + DW.EXPLORER_API + '/icon/DOGE.png\' class=\'fw-icon-20 margin-right-5\'>DOGE">DOGE</option>';
     } else if(type=='dispenser-buy'){
         var o = DW.DIALOG_DATA;
-        html += '<option data-content="<img src=\'' + DW.XCHAIN_API + '/icon/' + o.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + o.name +'">' + o.name + '</option>';
+        html += '<option data-content="<img src=\'' + DW.EXPLORER_API + '/icon/' + o.asset + '.png\' class=\'fw-icon-20 margin-right-5\'>' + o.name +'">' + o.name + '</option>';
     } else {
         if(balances && balances.data){
             balances.data.forEach(function(item){
@@ -37,8 +37,8 @@ $(document).ready(function(){
                 if(item.asset=='DOGE' && (type=='destroy'||type=='dispenser'))
                     return;
                 var asset = (item.asset_longname && item.asset_longname!='') ? item.asset_longname : item.asset;
-                html += '<option data-content="<img src=\'' + DW.XCHAIN_API + '/icon/XDP.png\' data-src=\'' + DW.XCHAIN_API + '/icon/' + item.asset + '.png\' class=\'fw-icon-20 margin-right-5 lazy-load\'>' + asset + '">' + asset + '</option>';
-           });
+                html += '<option data-content="<img src=\'' + DW.EXPLORER_API + '/icon/XDP.png\' data-src=\'' + DW.EXPLORER_API + '/icon/' + item.asset + '.png\' class=\'fw-icon-20 margin-right-5 lazy-load\'>' + asset + '">' + asset + '</option>';
+            });
         }
 
     }

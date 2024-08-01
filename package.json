@@ -1,8 +1,8 @@
 {
   "main": "index.html",
- "name": "DogeWallet",
+  "name": "DogeWallet",
   "description": "Dogewallet is a free open source desktop wallet that supports Dogecoin and Dogeparty",
-  "version": "0.9.27",
+  "version": "0.9.33",
   "author": "Jeremy Johnson <j-dog@j-dog.net>",
   "license": "MIT",
   "user-agent": "%name %ver (%osinfo)",
@@ -31,7 +31,6 @@
     "bootstrap-select": "1.13.18",
     "bootstrap-validator": "^0.11.9",
     "crypto-js": "^3.1.9-1",
-    "datatables.net": "^1.10.16",
     "eonasdan-bootstrap-datetimepicker": "^4.17.47",
     "font-awesome": "^4.7.0",
     "highstock-release": "^6.0.3",

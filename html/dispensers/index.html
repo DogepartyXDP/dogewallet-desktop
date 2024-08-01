@@ -70,11 +70,13 @@
     </div>
 </div>
 
-∂
 <script>
 
+// Setup alias for localStorage
+var ls = localStorage;
 
-
+// Set default sort order based on any stored preferences
+var dtDispensersSortOrder = JSON.parse(ls.getItem('dtDispensersSortOrder')) || [0, 'asc'];
 
 // Define datatables config used on this page
 DW.DISPENSERS_DATATABLE_CONFIG = {
@@ -84,6 +86,7 @@ DW.DISPENSERS_DATATABLE_CONFIG = {
     pageLength: getDispensersRowCount(),
     pagingType: "full",
     autoWidth: false,
+    order: dtDispensersSortOrder,
     language: {
         lengthMenu: "_MENU_ per page",
         zeroRecords: "No dispensers found",
@@ -135,7 +138,7 @@ DW.DISPENSERS_DATATABLE_CONFIG = {
         // Display Asset or address name and make it clickable
         if(id=='my-dispensers-table'){
             var [name, asset] = data[0].split('|');
-            html = '<img src="' + DW.XCHAIN_API + '/icon/' + asset + '.png" class="fw-icon-20 pull-left">&nbsp;';
+            html = '<img src="' + DW.EXPLORER_API + '/icon/' + asset + '.png" class="fw-icon-20 pull-left">&nbsp;';
         }
         html += '<a href="#" class="dispenser-link">' + name + '</a>';
         $('td', row).eq(0).html(html);
@@ -189,6 +192,15 @@ $(document).ready(function(){
     // Size the tabs to fit on screen and move any extras to the 'more' menu
     autoCollapseWatchlistTabs();
 
+
+    // Detect datatable sorts and store sorting preference for future use
+    $('#dispensers-lists .datatable thead th').click($.debounce(100,function(e){ 
+        var table = $(e.target).closest('table').DataTable(),
+            order = table.order();
+        // Save sort order to localStorage
+        ls.setItem('dtDispensersSortOrder', JSON.stringify([order[0][0], order[0][1]]));
+    }));
+
     // Initialize the 'View Options'
     if(DW.DISPENSER_OPTIONS.indexOf(1)!=-1) $(".checkbox [name='options-closed']").prop('checked', true);
 
@@ -219,7 +231,7 @@ $(document).ready(function(){
     // When user clicks dispenser name, launch dispenser in external window
     $('#dispensers-lists').on('click', 'a.dispenser-link', $.debounce(100,function(e){ 
         var data = String($(e.target).closest('tr').attr('data')).split(','),
-            url  = DW.XCHAIN_API + '/tx/' + data[6];
+            url  = DW.EXPLORER_API + '/tx/' + data[6];
         if(typeof nw !== 'undefined'){
             nw.Shell.openExternal(url);
         } else {

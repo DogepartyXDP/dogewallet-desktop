@@ -18,10 +18,68 @@
         <a class="input-group-addon" id=""><i class="fa fa-usd"></i></a>
         <input type="text" class="form-control" name="fee-value"  id="fee-value" placeholder="0.00" readonly>
     </div>
+    <!-- Hidden fields to hold transaction hex and size for quick reference -->
+    <input type="hidden" id="tx-hex"  name="tx-hex"  value="">
+    <input type="hidden" id="tx-size" name="tx-size" value="256">
 </div>
 
 
 <script>
+lastFeePriority = null;
+
+// Handle calculating the miners fee and updating the displayed amount
+function updateMinersFee(){
+    var val  = $('#fee-priority').val(),
+        size = $('#tx-size').val(),
+        el   = $('#fee-amount'),
+        amt  = el.val(),
+        o    = DW.NETWORK_INFO.fee_info,
+        fee  = o.optimal,
+        cost = fee; // default to high priority
+    if(val=='Low')
+        fee = o.low_priority;
+    if(val=='Medium')
+        fee = ((o.low_priority + o.optimal) / 2); // Medium fee is between high and low
+    // Default size to 1000 if tx is under 1000 bytes
+    if(size < 1000)
+        size = 1000;
+    // Handle calculating transaction cost
+    cost = numeral(((fee / 1000) * size) * 0.00000001).format('0.00000000');
+    // Set fee to minimum if user selects Custom, otherwise leave custom fee untouched
+    if(val=='Custom'){
+        if(lastFeePriority!=val)
+            cost = numeral(DW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
+        else
+            cost = amt
+    }
+    // Store last fee priority
+    lastFeePriority = val;
+    el.val(cost);
+    el.change();
+    // Display the current size/fee used to calculate the current fee
+    displayMinersFeeInfo();
+}
+
+// Handle displaying the current size/fee used to calculate the current miners fee
+function displayMinersFeeInfo(){
+    var html = '',
+        size = $('#tx-size').val(),
+        fee  = $('#fee-amount').val(),
+        rate = numeral((fee * 100000000) / size).format('0,0.0');
+    // Display the Transaction Size
+    html += '<div class="input-group pull-left" id="fee-size-wrapper" style="width:120px;">' +
+                '<div class="input-group-addon" id="">Size</div>' +
+                '<input type="text" class="form-control" name="fee-size"  id="fee-size" placeholder="100" readonly value="' + size + '">' +
+            '</div>';
+    // Display the Transaction Fee
+    html += '<div class="input-group pull-left" id="fee-sats-wrapper" style="width:160px;margin-left: 15px">' +
+                '<input type="text" class="form-control" name="fee-sats"  id="fee-sats" placeholder="100" readonly value="' + rate + '">' +
+                '<div class="input-group-addon" id="">sat/vB</div>' +
+            '</div>';
+    $('#transaction-status').removeClass('red green').html(html);
+}
+
+
 $(document).ready(function(){
     var ls = localStorage,
     doMinimumFeeAlert = false;
@@ -46,29 +104,13 @@ $(document).ready(function(){
 
     // When user changes priority, set fee amount based on priority selected
     $('#fee-priority').change($.debounce(100,function(e){
-        var val = $(this).val(),
-            o   = DW.NETWORK_INFO.fee_info,
-            avg = 265,       // Average send is 265 bytes (come back in future and base on actual tx size, not average)
-            fee = o.optimal; // default to high priority
-        if(val=='Low')
-            fee = o.low_priority;
-        if(val=='Medium')
-            fee = ((o.low_priority + o.optimal) / 2); // Medium fee is between high and low
-        // Calculate the actual fee cost for this transaction
-        // Assume that every transaction is 1000 bytes or under
-        var cost = numeral(((fee / 1000) * 1000) * 0.00000001).format('0.00000000');
-        // Set fee to minimum if user selects Custom
-        if(val=='Custom')
-            cost = numeral(DW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000');
-        $('#fee-amount').val(cost);
-        $('#fee-amount').change();
+        updateMinersFee();
     }));
 
     // Validate that fee amount is not below minimum tx fee, and force DOGE value to correct 0,0.00000000 format
     $('#fee-amount').change(function(e){
         var min = numeral(DW.MINIMUM_TX_FEE * 0.00000001).format('0.00000000'),
             amt = numeral(String($(this).val()).replace(/[^0-9.]/g,'')).format('0,0.00000000');
-            // console.log('min,amt=',min,amt);
         if(amt < min){
             amt = min;
             if(doMinimumFeeAlert)
@@ -76,6 +118,7 @@ $(document).ready(function(){
         }
         $(this).val(numeral(amt).format('0,0.00000000'));
         updateTxFeeValue(amt);
+        displayMinersFeeInfo();
     });
 
     // When user changes fee, update fee fiat

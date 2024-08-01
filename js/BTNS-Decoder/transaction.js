@@ -7,8 +7,8 @@
 // Handle sending request to a bitcoin core API via XChain BTC Proxy
 function btcRequest(network, data, callback){
     var net  = (network=='testnet') ? 'testnet' : 'mainnet',
-        host = (net=='testnet') ? 'testnet.xchain.io' : 'xchain.io',
-        url  = 'https://' + host + '/api/btc_proxy';
+        host = (net=='testnet') ? 'dogeparty-testnet.tokenscan.io' : 'dogeparty.tokenscan.io',
+        url  = 'https://' + host + '/api/doge_proxy';
     // Send request to server, process response
     $.ajax({
         type: "POST",

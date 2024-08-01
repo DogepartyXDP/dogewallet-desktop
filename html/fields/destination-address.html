@@ -59,7 +59,7 @@ $(document).ready(function(){
                 asset = 'DOGETAG.' + addr.toUpperCase().replace(/\.DOGE/i,'');
             // Try to lookup asset and then use owner address as destination address
             if(asset){
-                $.getJSON(DW.XCHAIN_API + '/api/asset/' + asset, function(o){
+                $.getJSON(DW.EXPLORER_API + '/api/asset/' + asset, function(o){
                     if(o.owner)
                         me.val(o.owner);
                 });
@@ -67,6 +67,9 @@ $(document).ready(function(){
         } else {
             me.val(addr);
         }
+        // Handle updating the transaction fee based on actual tx size
+        if(type=='sweep'||type=='send')
+            updateTransactionSize();
     });
 
     // Display 'Address Book' when user clicks address book link
