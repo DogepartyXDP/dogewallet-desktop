@@ -1,3 +1,7 @@
+Version 0.9.34 - August 30th, 2024
+- Fix issue with divisiblity on `Reset Supply` form
+- Updates to support datatables 2.1.5
+
 Version 0.9.33 - August 1st, 2024
 - Set default DP API servers to public.tokenscan.io
 - Set default explorer API servers to dogeparty.tokenscan.io
